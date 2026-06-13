@@ -38,3 +38,7 @@ export const IconStop = props => (
 export const IconDownload = props => (
   <Icon {...props}><path d="M12 4v11"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></Icon>
 )
+
+export const IconLocate = props => (
+  <Icon {...props}><circle cx="12" cy="12" r="7"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/></Icon>
+)

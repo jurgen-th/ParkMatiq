@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
 import { getProfile, getActiveSession, setActiveSession, getSettings } from '../utils/storage'
@@ -7,7 +7,7 @@ import { TILE_URL, TILE_ATTRIBUTION, userIcon } from '../utils/map'
 import BottomNav from '../components/BottomNav'
 import PlateBadge from '../components/PlateBadge'
 import ParkingZones from '../components/ParkingZones'
-import { IconPlay } from '../components/Icons'
+import { IconPlay, IconLocate } from '../components/Icons'
 
 const DEFAULT_CENTER = [51.9225, 4.47917] // Rotterdam
 const GEO_OPTS = { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
@@ -31,11 +31,22 @@ function FlyToLocation({ position }) {
   return null
 }
 
+// Exposes an imperative recenter handler so the button (rendered outside the
+// map) can fly back to the user's location on demand.
+function MapController({ recenterRef }) {
+  const map = useMap()
+  useEffect(() => {
+    recenterRef.current = pos => map.flyTo(pos, 16, { duration: 1 })
+  }, [map])
+  return null
+}
+
 export default function Home() {
   const navigate = useNavigate()
   const [profile,  setProfile]  = useState(null)
   const [location, setLocation] = useState(null)
   const [starting, setStarting] = useState(false)
+  const recenterRef = useRef(null)
 
   useEffect(() => {
     const p = getProfile()
@@ -68,6 +79,15 @@ export default function Home() {
     notify('Parkeren gestart', `Kenteken ${profile.plate}`)
   }
 
+  async function handleRecenter() {
+    if (location) recenterRef.current?.(location)
+    const fresh = await getCurrentPosition()
+    if (fresh) {
+      setLocation(fresh)
+      recenterRef.current?.(fresh)
+    }
+  }
+
   if (!profile) return null
 
   return (
@@ -81,8 +101,18 @@ export default function Home() {
           <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} />
           <ParkingZones />
           <FlyToLocation position={location} />
+          <MapController recenterRef={recenterRef} />
           {location && <Marker position={location} icon={userIcon} />}
         </MapContainer>
+        {location && (
+          <button
+            className="map-recenter"
+            onClick={handleRecenter}
+            aria-label="Naar mijn locatie"
+          >
+            <IconLocate size={20} />
+          </button>
+        )}
         <div className="zone-legend">
           <span><i style={{ background: '#4ADE80' }} />tot €1</span>
           <span><i style={{ background: '#FBBF24' }} />€1–2,50</span>
