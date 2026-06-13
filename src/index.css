@@ -513,6 +513,8 @@ button {
 /* ─── Scrollable content area ────────────────────────────────── */
 .content {
   flex: 1;
+  min-height: 0; /* allow the flex item to shrink so it scrolls instead of
+                    pushing the bottom nav off-screen on long pages */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding: 14px 18px;
