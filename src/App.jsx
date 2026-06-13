@@ -5,8 +5,10 @@ import Home          from './screens/Home'
 import ActiveSession from './screens/ActiveSession'
 import History       from './screens/History'
 import Settings      from './screens/Settings'
+import useDriveDetection from './hooks/useDriveDetection'
 
 export default function App() {
+  useDriveDetection()
   return (
     <HashRouter>
       <Routes>
