@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getProfile, saveProfile, clearAllData, getSettings, saveSettings } from '../utils/storage'
+import { currentTheme, setTheme } from '../utils/theme'
 import BottomNav from '../components/BottomNav'
 import { IconUser, IconMail } from '../components/Icons'
 
@@ -12,6 +13,8 @@ export default function Settings() {
   const [saved, setSaved] = useState(false)
   const [locationOn, setLocationOn] = useState(false)
   const [locBlocked, setLocBlocked] = useState(false)
+  const [darkOn, setDarkOn] = useState(false)
+  const [baseline, setBaseline] = useState('')
 
   useEffect(() => {
     const p = getProfile()
@@ -19,8 +22,23 @@ export default function Settings() {
     setName(p.name)
     setEmail(p.email || '')
     setPlate(p.plate)
-    setLocationOn(getSettings().location)
+    const s = getSettings()
+    setLocationOn(s.location)
+    setBaseline(String(s.dayBaseline))
+    setDarkOn(currentTheme() === 'dark')
   }, [])
+
+  function toggleDark() {
+    const next = darkOn ? 'light' : 'dark'
+    setDarkOn(!darkOn)
+    setTheme(next)
+  }
+
+  function handleBaseline(v) {
+    setBaseline(v)
+    const n = parseFloat(v.replace(',', '.'))
+    if (!Number.isNaN(n) && n > 0) saveSettings({ dayBaseline: n })
+  }
 
   async function toggleLocation() {
     if (locationOn) {
@@ -143,6 +161,46 @@ export default function Settings() {
               om deze functie te gebruiken.
             </p>
           )}
+        </div>
+
+        <div className="card">
+          <h2 className="card-title">Weergave</h2>
+          <div className="toggle-row">
+            <div className="toggle-info">
+              <span className="toggle-label">Donkere modus</span>
+              <span className="toggle-desc">Pas de app aan de nacht aan.</span>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={darkOn}
+              aria-label="Donkere modus"
+              className={`switch ${darkOn ? 'switch-on' : ''}`}
+              onClick={toggleDark}
+            >
+              <span className="switch-knob" />
+            </button>
+          </div>
+        </div>
+
+        <div className="card">
+          <h2 className="card-title">Tarief &amp; besparing</h2>
+          <p className="card-desc" style={{ marginBottom: 12 }}>
+            Vergelijk je werkelijke kosten met een vast dagtarief. ParkWise rekent
+            alleen de gebruikte minuten.
+          </p>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label>Vast dagtarief ter vergelijking (€)</label>
+            <div className="input-row">
+              <input
+                type="text"
+                inputMode="decimal"
+                value={baseline}
+                onChange={e => handleBaseline(e.target.value)}
+                placeholder="18"
+              />
+            </div>
+          </div>
         </div>
 
         <div className="card card-danger">

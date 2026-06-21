@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import { getActiveSession, clearActiveSession, addSession } from '../utils/storage'
 import { notify } from '../utils/notifications'
 import { formatDuration } from '../utils/pdf'
+import { costFor, formatEuro } from '../utils/tariff'
 import { TILE_URL, TILE_ATTRIBUTION, parkIcon } from '../utils/map'
 import PlateBadge from '../components/PlateBadge'
 import { IconStop } from '../components/Icons'
@@ -41,12 +42,13 @@ export default function ActiveSession() {
       id: startMs,
       endTime: new Date(endMs).toISOString(),
       duration,
+      cost: costFor(duration, session.rate),
     }
 
     clearActiveSession()
     addSession(completed)
     navigate('/', { replace: true })
-    notify('Parkeren gestopt', `Duur: ${formatDuration(duration)}`)
+    notify('Parkeren gestopt', `Duur: ${formatDuration(duration)} · ${formatEuro(completed.cost)}`)
   }
 
   if (!session) return null
@@ -61,21 +63,49 @@ export default function ActiveSession() {
   const pad = v => String(v).padStart(2, '0')
   const timerStr = `${pad(h)}:${pad(m)}:${pad(s)}`
 
+  const cost   = costFor(elapsed, session.rate)
   const parked = session.lat != null && session.lon != null
 
   return (
-    <div className="screen screen-session">
-      <div className="session-body">
+    <div className="screen">
+      <div className="content session-dash">
 
-        <div className="status-pill">
-          <span className="pulse-dot" />
-          <span>Actief parkeren</span>
+        <div className="statuscard">
+          <div className="sc-toprow">
+            <span className="sc-label">Parkeren actief</span>
+            <span className="sc-pill"><span className="sc-dot" />LIVE</span>
+          </div>
+
+          <div className="sc-title">{session.zoneDesc || 'Parkeersessie'}</div>
+          <div className="sc-sub">Gestart om {startStr} · meter loopt</div>
+
+          <div className="sc-tiles">
+            <div className="sc-tile">
+              <div className="sc-tile-label">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                Tijd
+              </div>
+              <div className="sc-tile-val">{timerStr}</div>
+            </div>
+            <div className="sc-tile">
+              <div className="sc-tile-label">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+                Kosten
+              </div>
+              <div className="sc-tile-val accent">{formatEuro(cost)}</div>
+            </div>
+          </div>
+
+          <div className="sc-detail">
+            <PlateBadge plate={session.plate} />
+            <div className="sc-detail-txt">
+              <div className="sc-detail-primary">{formatEuro(session.rate)}/uur</div>
+              <div className="sc-detail-secondary">
+                {session.zoneDesc ? 'Tarief uit zone · indicatief' : 'Standaardtarief · indicatief'}
+              </div>
+            </div>
+          </div>
         </div>
-
-        <div className="session-timer">{timerStr}</div>
-        <div className="session-since">Gestart om {startStr}</div>
-
-        <PlateBadge plate={session.plate} large />
 
         {parked && (
           <div className="minimap">

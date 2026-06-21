@@ -3,6 +3,10 @@ import { createRoot } from 'react-dom/client'
 import 'leaflet/dist/leaflet.css'
 import './index.css'
 import App from './App'
+import { applyTheme, currentTheme } from './utils/theme'
+
+// Apply the saved/system theme before first paint to avoid a flash.
+applyTheme(currentTheme())
 
 // Fix Leaflet default marker icons when bundled with Vite
 import L from 'leaflet'

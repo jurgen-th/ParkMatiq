@@ -1,6 +1,6 @@
 import { GeoJSON } from 'react-leaflet'
-import zones from '../data/rotterdam-parking-zones.geojson?url'
 import { useEffect, useState } from 'react'
+import { loadZones } from '../utils/zones'
 
 // Colour ramp by indicative hourly tariff (EUR/hour). Higher = warmer.
 function colorFor(eur) {
@@ -36,10 +36,10 @@ function onEachFeature(feature, layer) {
 export default function ParkingZones() {
   const [data, setData] = useState(null)
 
-  // The .geojson is bundled as a static URL; fetched once from the app's own
-  // origin (no external/RDW request at runtime).
+  // The .geojson is bundled as a static URL; fetched once (cached) and shared
+  // with the tariff lookup. No external/RDW request at runtime.
   useEffect(() => {
-    fetch(zones).then(r => r.json()).then(setData).catch(() => {})
+    loadZones().then(setData)
   }, [])
 
   if (!data) return null

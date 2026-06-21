@@ -42,3 +42,7 @@ export const IconDownload = props => (
 export const IconLocate = props => (
   <Icon {...props}><circle cx="12" cy="12" r="7"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/></Icon>
 )
+
+export const IconSearch = props => (
+  <Icon {...props}><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></Icon>
+)

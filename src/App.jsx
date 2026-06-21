@@ -1,6 +1,7 @@
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Login         from './screens/Login'
 import Register      from './screens/Register'
+import Onboarding    from './screens/Onboarding'
 import Home          from './screens/Home'
 import ActiveSession from './screens/ActiveSession'
 import History       from './screens/History'
@@ -14,7 +15,7 @@ export default function App() {
       <Routes>
         <Route path="/login"      element={<Login />} />
         <Route path="/register"   element={<Register />} />
-        <Route path="/onboarding" element={<Navigate to="/login" replace />} />
+        <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/"           element={<Home />} />
         <Route path="/session"    element={<ActiveSession />} />
         <Route path="/history"    element={<History />} />
