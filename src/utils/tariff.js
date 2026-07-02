@@ -58,7 +58,7 @@ export function sessionCost(s) {
 }
 
 // What a traditional meter charges for the same stay: every started hour is
-// billed in full at the zone rate. This is the honest baseline ParkWise beats
+// billed in full at the zone rate. This is the honest baseline ParkMatiq beats
 // by charging only the minutes actually used.
 export function meterCost(s) {
   const hours = Math.ceil((s.duration || 0) / 3600)

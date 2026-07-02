@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'apple-touch-icon.png'],
       manifest: {
-        name: 'ParkWise',
-        short_name: 'ParkWise',
+        name: 'ParkMatiq',
+        short_name: 'ParkMatiq',
         description: 'Slim parkeren — start en stop een parkeersessie, bewaar je geschiedenis, download je bewijs.',
         theme_color: '#1B45C8',
         background_color: '#1B45C8',

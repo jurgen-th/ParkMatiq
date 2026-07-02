@@ -1,4 +1,4 @@
-# ParkWise
+# ParkMatiq
 
 Slim parkeren — a Dutch parking-session PWA. Start and stop a parking session,
 see an honest per-minute cost, keep your history, and download a receipt.

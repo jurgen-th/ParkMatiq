@@ -42,7 +42,7 @@ export default function Register() {
       <div className="auth-hero">
         <div className="logo-icon">P</div>
         <div>
-          <div className="auth-hero-name">ParkWise</div>
+          <div className="auth-hero-name">ParkMatiq</div>
           <div className="auth-hero-tag">Slim parkeren</div>
         </div>
       </div>

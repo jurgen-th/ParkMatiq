@@ -157,7 +157,7 @@ export default function Home() {
       </div>
 
       <div className="topbar">
-        <div className="chip-logo"><span>P</span>ParkWise</div>
+        <div className="chip-logo"><span>P</span>ParkMatiq</div>
         <div className="avatar">{profile.name?.charAt(0).toUpperCase() || 'P'}</div>
       </div>
 

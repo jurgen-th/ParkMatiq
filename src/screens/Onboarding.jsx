@@ -86,14 +86,14 @@ export default function Onboarding() {
               </div>
             </div>
             <h1 className="ob-title">Parkeren dat oplet, zodat jij dat niet hoeft.</h1>
-            <p className="ob-text">ParkWise merkt wanneer je parkeert, start de meter voor je en stopt zodra je wegrijdt — je betaalt alleen de minuten die je echt gebruikt.</p>
+            <p className="ob-text">ParkMatiq merkt wanneer je parkeert, start de meter voor je en stopt zodra je wegrijdt — je betaalt alleen de minuten die je echt gebruikt.</p>
           </>
         )}
 
         {step === 1 && (
           <>
             <h1 className="ob-title">Een paar toestemmingen</h1>
-            <p className="ob-text">Deze maken het automatisch detecteren mogelijk. ParkWise volgt je niet op de achtergrond buiten parkeermomenten.</p>
+            <p className="ob-text">Deze maken het automatisch detecteren mogelijk. ParkMatiq volgt je niet op de achtergrond buiten parkeermomenten.</p>
             <ObRow icon={PinIcon} title="Locatie" sub="Herken parkeerzone & tarief" on={locationOn} onToggle={toggleLocation} />
             <ObRow icon={BellIcon} title="Meldingen" sub="Bevestigingen & verloop-alerts" on={notifOn} onToggle={toggleNotif} />
           </>
@@ -102,7 +102,7 @@ export default function Onboarding() {
         {step === 2 && (
           <>
             <h1 className="ob-title">Verbind je essentials</h1>
-            <p className="ob-text">Tik om te koppelen. Een betaalmethode laat ParkWise de meter direct betalen.</p>
+            <p className="ob-text">Tik om te koppelen. Een betaalmethode laat ParkMatiq de meter direct betalen.</p>
             <ConnectRow color="#1a1f36" label="Betaalmethode" sub="Kaart · ●●●● 4291" icon={CardIcon} done={payOn} onTap={() => setPayOn(true)} />
             <ConnectRow color="#0a7d33" label="Bluetooth" sub="Voor detectie van wegrijden" icon={BtIcon} done={btOn} onTap={() => setBtOn(true)} />
             <p className="ob-note">Demo — de echte betaal- en Bluetooth-koppeling komt bij de livegang.</p>
@@ -141,7 +141,7 @@ export default function Onboarding() {
         {step === 4 && (
           <>
             <h1 className="ob-title">Wanneer stoppen we sessies?</h1>
-            <p className="ob-text">ParkWise vraagt altijd voor het stoppen — dit bepaalt hoe snel het dat voorstelt.</p>
+            <p className="ob-text">ParkMatiq vraagt altijd voor het stoppen — dit bepaalt hoe snel het dat voorstelt.</p>
             <RadioOpt sel={endPref === 'balanced'} onPick={() => setEndPref('balanced')} title="Gebalanceerd" sub="Bevestig na wegrijden, korte wachttijd" />
             <RadioOpt sel={endPref === 'eager'} onPick={() => setEndPref('eager')} title="Elke cent sparen" sub="Stel stoppen voor zodra ik vertrek" />
             <RadioOpt sel={endPref === 'manual'} onPick={() => setEndPref('manual')} title="Nooit automatisch" sub="Alleen stoppen als ik er zelf op tik" />
@@ -156,7 +156,7 @@ export default function Onboarding() {
               </div>
             </div>
             <h1 className="ob-title">Je bent klaar.</h1>
-            <p className="ob-text">Parkeer ergens in een ParkWise-stad en wij nemen het over. Dit is jouw instelling:</p>
+            <p className="ob-text">Parkeer ergens in een ParkMatiq-stad en wij nemen het over. Dit is jouw instelling:</p>
             <div className="card" style={{ marginBottom: 0 }}>
               <SummaryItem on={locationOn} text="Automatisch parkeren detecteren" offText="Automatisch detecteren (locatie uit)" />
               <SummaryItem on={notifOn} text="Verloop-herinneringen actief" offText="Verloop-herinneringen (meldingen uit)" />
@@ -173,7 +173,7 @@ export default function Onboarding() {
       <div className="ob-nav">
         {step > 0 && <button className="btn btn-ghost" onClick={back}>Terug</button>}
         <button className="btn btn-yellow" onClick={next}>
-          {step === 0 ? 'Beginnen' : step === STEPS - 1 ? 'Naar ParkWise' : 'Doorgaan'}
+          {step === 0 ? 'Beginnen' : step === STEPS - 1 ? 'Naar ParkMatiq' : 'Doorgaan'}
         </button>
       </div>
     </div>

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate ParkWise app icons (pin mark + swoosh on brand blue) at the sizes the
+Generate ParkMatiq app icons (pin mark + swoosh on brand blue) at the sizes the
 PWA needs. Drawn full-bleed with content in the centred safe zone so Android's
 circle mask and iOS's rounded-square mask both crop cleanly.
 

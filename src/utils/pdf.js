@@ -29,7 +29,7 @@ export function generateReceipt(session) {
   doc.setTextColor(255, 255, 255)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(26)
-  doc.text('ParkWise', 105, 17, { align: 'center' })
+  doc.text('ParkMatiq', 105, 17, { align: 'center' })
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(11)
@@ -69,9 +69,9 @@ export function generateReceipt(session) {
   // Footer
   doc.setFontSize(9)
   doc.setTextColor(160, 160, 160)
-  doc.text('Bedankt voor het gebruik van ParkWise', 105, 278, { align: 'center' })
-  doc.text('parkwise.app', 105, 284, { align: 'center' })
+  doc.text('Bedankt voor het gebruik van ParkMatiq', 105, 278, { align: 'center' })
+  doc.text('parkmatiq.app', 105, 284, { align: 'center' })
 
-  const fileName = `ParkWise_${session.plate}_${startDate.toISOString().slice(0, 10)}.pdf`
+  const fileName = `ParkMatiq_${session.plate}_${startDate.toISOString().slice(0, 10)}.pdf`
   doc.save(fileName)
 }

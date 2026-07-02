@@ -25,7 +25,7 @@ export default function History() {
     ? sessions.filter(s => Date.now() - new Date(s.startTime).getTime() < WEEK_MS)
     : sessions
 
-  // This-month roll-up: what ParkWise charged, what a per-hour meter would have
+  // This-month roll-up: what ParkMatiq charged, what a per-hour meter would have
   // charged, and the difference (the honest "saved" figure).
   const now = new Date()
   const monthSessions = sessions.filter(s => {

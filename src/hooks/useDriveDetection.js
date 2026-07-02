@@ -28,9 +28,9 @@ export default function useDriveDetection() {
         stateRef.current = state
 
         if (prompt === 'start') {
-          notify('Sessie starten?', 'Je lijkt geparkeerd — open ParkWise om je parkeersessie te starten.')
+          notify('Sessie starten?', 'Je lijkt geparkeerd — open ParkMatiq om je parkeersessie te starten.')
         } else if (prompt === 'stop') {
-          notify('Sessie stoppen?', 'Je rijdt weer — open ParkWise om je parkeersessie te stoppen.')
+          notify('Sessie stoppen?', 'Je rijdt weer — open ParkMatiq om je parkeersessie te stoppen.')
         }
       },
       () => {},
