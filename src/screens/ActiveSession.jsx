@@ -7,6 +7,7 @@ import { formatDuration } from '../utils/pdf'
 import { costFor, formatEuro } from '../utils/tariff'
 import { TILE_URL, TILE_ATTRIBUTION, parkIcon } from '../utils/map'
 import PlateBadge from '../components/PlateBadge'
+import BottomNav from '../components/BottomNav'
 import { IconStop } from '../components/Icons'
 
 export default function ActiveSession() {
@@ -47,8 +48,8 @@ export default function ActiveSession() {
 
     clearActiveSession()
     addSession(completed)
-    navigate('/', { replace: true })
     notify('Parkeren gestopt', `Duur: ${formatDuration(duration)} · ${formatEuro(completed.cost)}`)
+    navigate('/summary', { replace: true, state: { session: completed } })
   }
 
   if (!session) return null
@@ -138,6 +139,7 @@ export default function ActiveSession() {
         </div>
 
       </div>
+      <BottomNav />
     </div>
   )
 }

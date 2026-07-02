@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { saveProfile } from '../utils/storage'
+import { normalizePlate, isValidPlate } from '../utils/plate'
 import { IconMail, IconLock, IconUser, IconEye, IconEyeOff } from '../components/Icons'
 
 export default function Register() {
@@ -22,10 +23,11 @@ export default function Register() {
       if (!email.trim())    { setError('Vul je e-mailadres in'); return }
       if (!password.trim()) { setError('Vul een wachtwoord in'); return }
     }
-    if (!plate.trim()) { setError('Vul je kenteken in'); return }
+    if (!plate.trim())      { setError('Vul je kenteken in'); return }
+    if (!isValidPlate(plate)) { setError('Dat lijkt geen geldig Nederlands kenteken'); return }
 
     // Wachtwoord wordt bewust niet opgeslagen — echte auth volgt via Supabase.
-    const profile = { name: name.trim(), plate: plate.trim().toUpperCase() }
+    const profile = { name: name.trim(), plate: normalizePlate(plate) }
     if (!guest && email.trim()) profile.email = email.trim()
     saveProfile(profile)
     navigate('/', { replace: true })

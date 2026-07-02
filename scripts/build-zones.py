@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-One-time build script: download Rotterdam paid-parking zones from the free,
+One-time build script: download all Dutch paid-parking zones from the free,
 unmetered RDW Open Data portal and bundle them as a static GeoJSON.
 
 Source: opendata.rdw.nl (Socrata) — open-licensed, no API key, no per-request charge.
@@ -16,7 +16,6 @@ Tariff model (SPDP):
 """
 import json, urllib.request, urllib.parse, datetime, os
 
-ROTTERDAM = "599"            # RDW areamanagerid for the Rotterdam municipality
 BASE = "https://opendata.rdw.nl/resource/"
 DATASETS = {
     "geometry":   "nsk3-v9n7",
@@ -25,6 +24,7 @@ DATASETS = {
     "fare":       "534e-5vdg",
     "area":       "adw6-9hsg",
 }
+PAGE = 50000                 # Socrata max rows per request; larger sets are paged.
 TODAY = datetime.date.today().strftime("%Y%m%d")
 # Representative slot: a normal weekday afternoon (covers typical daytime tariff).
 WEEKDAYS = ["WOENSDAG", "DINSDAG", "DONDERDAG", "MAANDAG", "VRIJDAG"]
@@ -32,11 +32,17 @@ SAMPLE_MINUTE = 1300         # 13:00, expressed in RDW's HHMM-as-int form
 
 
 def fetch(dataset, **params):
-    params.setdefault("areamanagerid", ROTTERDAM)
-    params["$limit"] = 50000
-    url = BASE + DATASETS[dataset] + ".json?" + urllib.parse.urlencode(params)
-    with urllib.request.urlopen(url) as r:
-        return json.load(r)
+    """Page through a dataset (nationwide — no areamanagerid filter)."""
+    rows, offset = [], 0
+    while True:
+        params["$limit"], params["$offset"] = PAGE, offset
+        url = BASE + DATASETS[dataset] + ".json?" + urllib.parse.urlencode(params)
+        with urllib.request.urlopen(url) as r:
+            batch = json.load(r)
+        rows.extend(batch)
+        if len(batch) < PAGE:
+            return rows
+        offset += PAGE
 
 
 def _nest(s, i=0):
@@ -69,7 +75,9 @@ def _ring(node):
 
 def parse_wkt(wkt):
     """Parse WKT POLYGON / MULTIPOLYGON into GeoJSON geometry (lon lat order)."""
-    wkt = wkt.strip()
+    wkt = (wkt or "").strip()
+    if "(" not in wkt:
+        return None
     start = wkt.index("(")
     tree, _ = _nest(wkt, start + 1)
     if wkt.startswith("MULTIPOLYGON"):
@@ -103,7 +111,7 @@ def eur_per_hour(parts):
 
 
 def main():
-    print("Fetching Rotterdam parking data from RDW open data (one-time)...")
+    print("Fetching all-NL parking data from RDW open data (one-time, paged)...")
     geometry   = fetch("geometry")
     regulation = fetch("regulation")
     timeframe  = fetch("timeframe")
@@ -150,27 +158,27 @@ def main():
     features, priced = [], 0
     for g in geometry:
         aid = g["areaid"]
-        # Keep only the numbered street-tariff zones. Non-numeric ids are
-        # administrative umbrellas (Sector NN, ZE Zone, Zone_N) that blanket the
-        # whole city with no tariff -- they grey out and intercept clicks on the
-        # real zones underneath.
-        if not aid.isdigit():
-            continue
         geom = parse_wkt(g.get("areageometryastext", ""))
         if not geom:
             continue
         rid = area_to_reg.get(aid)
         code = reg_to_fare.get(rid, (None, None))[0] if rid else None
         rate = fare_rate.get(code)
-        if rate:
-            priced += 1
+        # Keep only zones that resolve to a real weekday-daytime tariff. This
+        # drops the administrative "umbrella" areas (Sector NN, ZE Zone, ...)
+        # that carry no tariff and would grey out / intercept clicks on the real
+        # zones underneath -- works nationwide, unlike a numeric-id heuristic.
+        if not rate:
+            continue
+        priced += 1
         features.append({
             "type": "Feature",
             "geometry": geom,
             "properties": {
                 "areaid": aid,
+                "areamanagerid": g.get("areamanagerid"),
                 "desc": area_desc.get(aid, f"Zone {aid}"),
-                "eurPerHour": rate,            # None if no current weekday-daytime tariff
+                "eurPerHour": rate,
                 "fareCode": code,
             },
         })
@@ -178,7 +186,7 @@ def main():
     fc = {
         "type": "FeatureCollection",
         "metadata": {
-            "source": "RDW Open Data Parkeren (opendata.rdw.nl), areamanagerid 599 Rotterdam",
+            "source": "RDW Open Data Parkeren (opendata.rdw.nl), all Dutch municipalities",
             "license": "open data, free to use",
             "generated": TODAY,
             "note": "Tarieven indicatief / demo - representative weekday daytime rate",
@@ -187,11 +195,16 @@ def main():
     }
 
     out = os.path.join(os.path.dirname(__file__), "..", "src", "data",
-                       "rotterdam-parking-zones.geojson")
+                       "nl-parking-zones.geojson")
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, "w", encoding="utf-8") as f:
         json.dump(fc, f, ensure_ascii=False)
-    print(f"Wrote {len(features)} zones ({priced} with a tariff) -> {os.path.normpath(out)}")
+    managers = {f["properties"]["areamanagerid"] for f in features}
+    kept_digit = sum(1 for g in geometry if g["areaid"].isdigit())
+    total_geo = len(geometry)
+    print(f"Geometry rows: {total_geo}; numeric-id kept: {kept_digit}")
+    print(f"Wrote {len(features)} zones ({priced} priced) across {len(managers)} "
+          f"municipalities -> {os.path.normpath(out)}")
 
 
 if __name__ == "__main__":

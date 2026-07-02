@@ -94,8 +94,8 @@ export default function Onboarding() {
           <>
             <h1 className="ob-title">Een paar toestemmingen</h1>
             <p className="ob-text">Deze maken het automatisch detecteren mogelijk. ParkWise volgt je niet op de achtergrond buiten parkeermomenten.</p>
-            <ObRow icon={PinIcon} title="Locatie" sub="Herken parkeerzone &amp; tarief" on={locationOn} onToggle={toggleLocation} />
-            <ObRow icon={BellIcon} title="Meldingen" sub="Bevestigingen &amp; verloop-alerts" on={notifOn} onToggle={toggleNotif} />
+            <ObRow icon={PinIcon} title="Locatie" sub="Herken parkeerzone & tarief" on={locationOn} onToggle={toggleLocation} />
+            <ObRow icon={BellIcon} title="Meldingen" sub="Bevestigingen & verloop-alerts" on={notifOn} onToggle={toggleNotif} />
           </>
         )}
 
@@ -105,6 +105,7 @@ export default function Onboarding() {
             <p className="ob-text">Tik om te koppelen. Een betaalmethode laat ParkWise de meter direct betalen.</p>
             <ConnectRow color="#1a1f36" label="Betaalmethode" sub="Kaart · ●●●● 4291" icon={CardIcon} done={payOn} onTap={() => setPayOn(true)} />
             <ConnectRow color="#0a7d33" label="Bluetooth" sub="Voor detectie van wegrijden" icon={BtIcon} done={btOn} onTap={() => setBtOn(true)} />
+            <p className="ob-note">Demo — de echte betaal- en Bluetooth-koppeling komt bij de livegang.</p>
           </>
         )}
 
@@ -155,11 +156,15 @@ export default function Onboarding() {
               </div>
             </div>
             <h1 className="ob-title">Je bent klaar.</h1>
-            <p className="ob-text">Parkeer ergens in een ParkWise-stad en wij nemen het over. Dit staat aan:</p>
+            <p className="ob-text">Parkeer ergens in een ParkWise-stad en wij nemen het over. Dit is jouw instelling:</p>
             <div className="card" style={{ marginBottom: 0 }}>
-              <SummaryItem text="Automatisch parkeren detecteren" />
-              <SummaryItem text="Bevestigen-voor-stoppen aan" />
-              <SummaryItem text="Verloop-herinneringen actief" />
+              <SummaryItem on={locationOn} text="Automatisch parkeren detecteren" offText="Automatisch detecteren (locatie uit)" />
+              <SummaryItem on={notifOn} text="Verloop-herinneringen actief" offText="Verloop-herinneringen (meldingen uit)" />
+              <SummaryItem
+                on={endPref !== 'manual'}
+                text={endPref === 'eager' ? 'Stoppen voorstellen zodra je wegrijdt' : 'Bevestigen voor stoppen'}
+                offText="Alleen handmatig stoppen"
+              />
             </div>
           </>
         )}
@@ -191,7 +196,7 @@ function ObRow({ icon, title, sub, on, onToggle }) {
       <span className="ob-row-icon">{icon}</span>
       <div className="toggle-info">
         <span className="toggle-label">{title}</span>
-        <span className="toggle-desc" dangerouslySetInnerHTML={{ __html: sub }} />
+        <span className="toggle-desc">{sub}</span>
       </div>
       <Switch on={on} onToggle={onToggle} label={title} />
     </div>
@@ -223,11 +228,15 @@ function RadioOpt({ sel, onPick, title, sub }) {
   )
 }
 
-function SummaryItem({ text }) {
+function SummaryItem({ on = true, text, offText }) {
   return (
-    <div className="ob-summary-item">
-      <span className="ob-chk"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
-      {text}
+    <div className={`ob-summary-item${on ? '' : ' off'}`}>
+      <span className="ob-chk">
+        {on
+          ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/></svg>}
+      </span>
+      {on ? text : (offText || text)}
     </div>
   )
 }

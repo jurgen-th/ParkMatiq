@@ -1,4 +1,4 @@
-import { loadZones } from './zones'
+import { loadZones, featureBBox } from './zones'
 
 // Fallback rate when the parked point isn't inside any known tariff zone
 // (e.g. location was off, or parked outside the mapped Rotterdam area).
@@ -30,6 +30,8 @@ function pointInFeature(lat, lon, geom) {
 export function zoneForPoint(lat, lon, data) {
   if (lat == null || lon == null || !data?.features) return null
   for (const f of data.features) {
+    const [minLon, minLat, maxLon, maxLat] = featureBBox(f)
+    if (lon < minLon || lon > maxLon || lat < minLat || lat > maxLat) continue
     if (pointInFeature(lat, lon, f.geometry)) {
       return { rate: f.properties.eurPerHour ?? DEFAULT_RATE, desc: f.properties.desc }
     }
@@ -53,6 +55,19 @@ export function costFor(durationSec, rate) {
 export function sessionCost(s) {
   if (typeof s.cost === 'number') return s.cost
   return costFor(s.duration || 0, s.rate)
+}
+
+// What a traditional meter charges for the same stay: every started hour is
+// billed in full at the zone rate. This is the honest baseline ParkWise beats
+// by charging only the minutes actually used.
+export function meterCost(s) {
+  const hours = Math.ceil((s.duration || 0) / 3600)
+  return hours * (s.rate ?? DEFAULT_RATE)
+}
+
+// Savings for one session vs. a per-hour meter (never negative).
+export function savingsVsMeter(s) {
+  return Math.max(0, meterCost(s) - sessionCost(s))
 }
 
 export function formatEuro(n) {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getProfile, saveProfile, clearAllData, getSettings, saveSettings } from '../utils/storage'
+import { normalizePlate, isValidPlate } from '../utils/plate'
 import { currentTheme, setTheme } from '../utils/theme'
 import BottomNav from '../components/BottomNav'
 import { IconUser, IconMail } from '../components/Icons'
@@ -11,10 +12,13 @@ export default function Settings() {
   const [email, setEmail] = useState('')
   const [plate, setPlate] = useState('')
   const [saved, setSaved] = useState(false)
+  const [plateErr, setPlateErr] = useState('')
   const [locationOn, setLocationOn] = useState(false)
   const [locBlocked, setLocBlocked] = useState(false)
   const [darkOn, setDarkOn] = useState(false)
-  const [baseline, setBaseline] = useState('')
+  const [budget, setBudget] = useState('')
+  const [permit, setPermit] = useState('')
+  const [endPref, setEndPref] = useState('balanced')
 
   useEffect(() => {
     const p = getProfile()
@@ -24,7 +28,9 @@ export default function Settings() {
     setPlate(p.plate)
     const s = getSettings()
     setLocationOn(s.location)
-    setBaseline(String(s.dayBaseline))
+    setBudget(s.monthlyBudget || '')
+    setPermit(s.permitPostcode || '')
+    setEndPref(s.endPreference || 'balanced')
     setDarkOn(currentTheme() === 'dark')
   }, [])
 
@@ -34,10 +40,20 @@ export default function Settings() {
     setTheme(next)
   }
 
-  function handleBaseline(v) {
-    setBaseline(v)
-    const n = parseFloat(v.replace(',', '.'))
-    if (!Number.isNaN(n) && n > 0) saveSettings({ dayBaseline: n })
+  function handleBudget(v) {
+    setBudget(v)
+    saveSettings({ monthlyBudget: v.trim() })
+  }
+
+  function handlePermit(v) {
+    const up = v.toUpperCase()
+    setPermit(up)
+    saveSettings({ permitPostcode: up.trim() })
+  }
+
+  function handleEndPref(v) {
+    setEndPref(v)
+    saveSettings({ endPreference: v })
   }
 
   async function toggleLocation() {
@@ -65,9 +81,11 @@ export default function Settings() {
 
   function handleSave() {
     if (!name.trim() || !plate.trim()) return
-    const profile = { name: name.trim(), plate: plate.trim().toUpperCase() }
+    if (!isValidPlate(plate)) { setPlateErr('Dat lijkt geen geldig Nederlands kenteken'); return }
+    const profile = { name: name.trim(), plate: normalizePlate(plate) }
     if (email.trim()) profile.email = email.trim()
     saveProfile(profile)
+    setPlateErr('')
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -122,13 +140,15 @@ export default function Settings() {
               <span className="plate-strip">NL</span>
               <input
                 value={plate}
-                onChange={e => { setPlate(e.target.value.toUpperCase()); setSaved(false) }}
+                onChange={e => { setPlate(e.target.value.toUpperCase()); setSaved(false); setPlateErr('') }}
                 placeholder="AB-123-C"
                 autoCapitalize="characters"
                 autoComplete="off"
               />
             </div>
           </div>
+
+          {plateErr && <p className="form-error">{plateErr}</p>}
 
           <button className="btn btn-yellow" onClick={handleSave}>
             {saved ? '✓  Opgeslagen' : 'Opslaan'}
@@ -184,21 +204,51 @@ export default function Settings() {
         </div>
 
         <div className="card">
-          <h2 className="card-title">Tarief &amp; besparing</h2>
-          <p className="card-desc" style={{ marginBottom: 12 }}>
-            Vergelijk je werkelijke kosten met een vast dagtarief. ParkWise rekent
-            alleen de gebruikte minuten.
-          </p>
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label>Vast dagtarief ter vergelijking (€)</label>
+          <h2 className="card-title">Voorkeuren</h2>
+
+          <div className="form-group">
+            <label>Maandbudget (€)</label>
             <div className="input-row">
               <input
                 type="text"
                 inputMode="decimal"
-                value={baseline}
-                onChange={e => handleBaseline(e.target.value)}
-                placeholder="18"
+                value={budget}
+                onChange={e => handleBudget(e.target.value)}
+                placeholder="bijv. 40"
               />
+            </div>
+            <span className="field-hint">Leeg = geen budget. Je voortgang staat bij Geschiedenis.</span>
+          </div>
+
+          <div className="form-group">
+            <label>Bewonersvergunning (postcode)</label>
+            <div className="input-row">
+              <input
+                value={permit}
+                onChange={e => handlePermit(e.target.value)}
+                placeholder="bijv. 3011 AB"
+                autoCapitalize="characters"
+              />
+            </div>
+          </div>
+
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label>Sessie stoppen</label>
+            <div className="seg-control">
+              {[
+                ['balanced', 'Gebalanceerd'],
+                ['eager',    'Elke cent'],
+                ['manual',   'Handmatig'],
+              ].map(([val, lbl]) => (
+                <button
+                  key={val}
+                  type="button"
+                  className={`seg-opt${endPref === val ? ' seg-opt-active' : ''}`}
+                  onClick={() => handleEndPref(val)}
+                >
+                  {lbl}
+                </button>
+              ))}
             </div>
           </div>
         </div>

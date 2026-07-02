@@ -1,0 +1,11 @@
+{
+  "appId": "app.parkwise.mobile",
+  "appName": "ParkWise",
+  "webDir": "dist",
+  "backgroundColor": "#002D72",
+  "plugins": {
+    "Geolocation": {
+      "permissions": ["location"]
+    }
+  }
+}

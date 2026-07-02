@@ -6,7 +6,6 @@ const SETTINGS_KEY = 'pw_settings'
 const DEFAULT_SETTINGS = {
   location: true,
   theme: null,            // null = follow OS; 'light' | 'dark' = explicit
-  dayBaseline: 18,        // € flat all-day rate to compare savings against
   onboardingDone: false,
   paymentConnected: false,
   bluetoothConnected: false,

@@ -47,9 +47,12 @@ export default function Home() {
   const navigate = useNavigate()
   const [profile,  setProfile]  = useState(null)
   const [location, setLocation] = useState(null)
+  const [active,   setActive]   = useState(null)
+  const [locEnabled, setLocEnabled] = useState(true)
   const [starting, setStarting] = useState(false)
   const [query,     setQuery]     = useState('')
   const [searchPos, setSearchPos] = useState(null)
+  const [searchLabel, setSearchLabel] = useState('')
   const [searching, setSearching] = useState(false)
   const [searchErr, setSearchErr] = useState('')
   const recenterRef = useRef(null)
@@ -58,8 +61,9 @@ export default function Home() {
     const p = getProfile()
     if (!p) { navigate('/login', { replace: true }); return }
     if (!getSettings().onboardingDone) { navigate('/onboarding', { replace: true }); return }
-    if (getActiveSession()) { navigate('/session', { replace: true }); return }
     setProfile(p)
+    setActive(getActiveSession())
+    setLocEnabled(getSettings().location)
 
     if (getSettings().location) {
       navigator.geolocation?.getCurrentPosition(
@@ -101,6 +105,7 @@ export default function Home() {
     setSearching(false)
     if (result) {
       setSearchPos(result.pos)
+      setSearchLabel(result.label)
       recenterRef.current?.(result.pos)
     } else {
       setSearchErr('Geen locatie gevonden')
@@ -170,13 +175,16 @@ export default function Home() {
             <button
               type="button"
               className="map-search-clear"
-              onClick={() => { setQuery(''); setSearchPos(null); setSearchErr('') }}
+              onClick={() => { setQuery(''); setSearchPos(null); setSearchErr(''); setSearchLabel('') }}
               aria-label="Wissen"
             >✕</button>
           )}
         </div>
         {searching && <span className="map-search-status">Zoeken…</span>}
         {searchErr && <span className="map-search-status err">{searchErr}</span>}
+        {!searching && !searchErr && searchLabel && (
+          <span className="map-search-status found">{searchLabel}</span>
+        )}
       </form>
 
       <div className="sheet">
@@ -190,14 +198,28 @@ export default function Home() {
             </div>
           </div>
         </div>
-        <button
-          className="btn btn-yellow"
-          onClick={handleStart}
-          disabled={starting}
-        >
-          <IconPlay size={16} />
-          {starting ? 'Bezig…' : 'Start parkeren'}
-        </button>
+        {active ? (
+          <button
+            className="btn btn-yellow"
+            onClick={() => navigate('/session')}
+          >
+            <span className="live-dot" /> Naar actieve sessie
+          </button>
+        ) : (
+          <>
+            <button
+              className="btn btn-yellow"
+              onClick={handleStart}
+              disabled={starting}
+            >
+              <IconPlay size={16} />
+              {starting ? 'Bezig…' : 'Start parkeren'}
+            </button>
+            {!locEnabled && (
+              <p className="start-hint">Locatie staat uit — het standaardtarief wordt gebruikt.</p>
+            )}
+          </>
+        )}
         <BottomNav active="home" />
       </div>
     </div>
