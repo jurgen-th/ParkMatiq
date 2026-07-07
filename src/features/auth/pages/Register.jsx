@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { saveProfile } from '../../../services/storage'
 import { supabase, backendEnabled } from '../../../services/backend/supabase'
@@ -27,10 +27,23 @@ export default function Register() {
   const [showPw,   setShowPw]   = useState(false)
   const [error,    setError]    = useState('')
   const [busy,     setBusy]     = useState(false)
+  // Al ingelogd maar (nog) geen profiel op de server — bv. na registratie met
+  // e-mailbevestiging aan, waar de eerste sync nooit liep. Dan alleen naam +
+  // kenteken vragen; e-mail/wachtwoord zijn al bekend bij Supabase Auth.
+  const [sessionEmail, setSessionEmail] = useState(null)
+  const completing = !!sessionEmail && !guest
+
+  useEffect(() => {
+    if (backendEnabled) {
+      supabase.auth.getSession().then(({ data }) => {
+        setSessionEmail(data.session?.user?.email ?? null)
+      })
+    }
+  }, [])
 
   async function handleSubmit() {
     if (!name.trim()) { setError('Vul je naam in'); return }
-    if (!guest) {
+    if (!guest && !completing) {
       if (!email.trim())    { setError('Vul je e-mailadres in'); return }
       if (!password.trim()) { setError('Vul een wachtwoord in'); return }
     }
@@ -40,7 +53,17 @@ export default function Register() {
     // Het wachtwoord gaat alleen naar Supabase Auth (bcrypt-hash aan de
     // serverkant); wij slaan het zelf nergens op. Gastmodus blijft lokaal.
     const profile = { name: name.trim(), plate: normalizePlate(plate) }
-    if (!guest && email.trim()) profile.email = email.trim()
+    if (completing) profile.email = sessionEmail
+    else if (!guest && email.trim()) profile.email = email.trim()
+
+    if (completing) {
+      setBusy(true)
+      saveProfile(profile)
+      await pushAll()
+      setBusy(false)
+      navigate('/', { replace: true })
+      return
+    }
 
     if (backendEnabled && !guest) {
       setBusy(true)
@@ -86,9 +109,15 @@ export default function Register() {
       </div>
 
       <div className="auth-sheet">
-        <h1>{guest ? 'Stel je voertuig in' : 'Account aanmaken'}</h1>
+        <h1>{guest || completing ? 'Stel je voertuig in' : 'Account aanmaken'}</h1>
 
-        {location.state?.notice && (
+        {completing && (
+          <p className="form-hint">
+            Je bent ingelogd. Maak je profiel af om verder te gaan.
+          </p>
+        )}
+
+        {location.state?.notice && !completing && (
           <p className="form-hint">
             Geen account gevonden op dit apparaat. Maak hieronder je profiel aan.
           </p>
@@ -107,7 +136,7 @@ export default function Register() {
           </div>
         </div>
 
-        {!guest && (
+        {!guest && !completing && (
           <>
             <div className="form-group">
               <div className="input-row">
@@ -164,7 +193,7 @@ export default function Register() {
         {error && <p className="form-error">{error}</p>}
 
         <button className="btn btn-yellow" onClick={handleSubmit} disabled={busy}>
-          {busy ? 'Even geduld…' : guest ? 'Beginnen' : 'Account aanmaken'}
+          {busy ? 'Even geduld…' : guest || completing ? 'Beginnen' : 'Account aanmaken'}
         </button>
 
         <div className="auth-foot">

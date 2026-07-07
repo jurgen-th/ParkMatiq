@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { getProfile } from '../../../services/storage'
 import { supabase, backendEnabled } from '../../../services/backend/supabase'
-import { pullAll } from '../../../services/backend/sync'
+import { pullAll, pushAll } from '../../../services/backend/sync'
 import { IconMail, IconLock, IconEye, IconEyeOff } from '../../../components/common/Icons'
 
 // NL-vriendelijke vertaling van de gangbare Supabase-auth fouten.
@@ -44,7 +44,20 @@ export default function Login() {
         setError(authErrorNL(err))
         return
       }
-      await pullAll()
+      const hasServerProfile = await pullAll()
+      if (!hasServerProfile) {
+        if (getProfile()) {
+          // Server nog leeg maar dit device heeft data (bv. eerste login na
+          // registratie met e-mailbevestiging): seed de server alsnog.
+          await pushAll()
+        } else {
+          // Geen profiel op server of device: profiel afmaken in plaats van
+          // stil terugkaatsen op de Home-gate.
+          setBusy(false)
+          navigate('/register', { replace: true })
+          return
+        }
+      }
       setBusy(false)
       navigate('/', { replace: true })
       return
