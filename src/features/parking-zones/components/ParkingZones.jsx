@@ -1,6 +1,6 @@
 import { GeoJSON, useMap, useMapEvents } from 'react-leaflet'
 import { useEffect, useState, useCallback } from 'react'
-import { loadZones, featureBBox } from '../utils/zones'
+import { loadZones, featureBBox } from '../../../utils/zones'
 
 // Below this zoom the viewport spans too many zones to draw usefully, so we
 // render nothing (the whole-country view would be thousands of polygons).

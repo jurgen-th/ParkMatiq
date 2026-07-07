@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getProfile, getSettings, saveSettings } from '../utils/storage'
-import { requestPermission } from '../utils/notifications'
+import { getProfile, getSettings, saveSettings } from '../../../services/storage'
+import { requestPermission } from '../../../services/notifications'
 
 const STEPS = 6
 

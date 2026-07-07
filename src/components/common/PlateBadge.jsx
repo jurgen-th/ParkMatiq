@@ -1,4 +1,4 @@
-import { formatPlate } from '../utils/plate'
+import { formatPlate } from '../../utils/plate'
 
 export default function PlateBadge({ plate, large }) {
   return (

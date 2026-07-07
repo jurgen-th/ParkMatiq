@@ -1,8 +1,8 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import 'leaflet/dist/leaflet.css'
-import './index.css'
-import App from './App'
+import './styles/index.css'
+import App from './app/App'
 import { applyTheme, currentTheme } from './utils/theme'
 
 // Apply the saved/system theme before first paint to avoid a flash.

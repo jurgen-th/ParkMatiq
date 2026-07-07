@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
-import { getActiveSession, clearActiveSession, addSession } from '../utils/storage'
-import { notify } from '../utils/notifications'
-import { formatDuration } from '../utils/pdf'
-import { costFor, formatEuro } from '../utils/tariff'
-import { TILE_URL, TILE_ATTRIBUTION, parkIcon } from '../utils/map'
-import PlateBadge from '../components/PlateBadge'
-import BottomNav from '../components/BottomNav'
-import { IconStop } from '../components/Icons'
+import { getActiveSession, clearActiveSession, addSession } from '../../../services/storage'
+import { notify } from '../../../services/notifications'
+import { formatDuration } from '../../../services/receipts'
+import { costFor, formatEuro } from '../../../services/tariffs'
+import { TILE_URL, TILE_ATTRIBUTION, parkIcon } from '../../../utils/map'
+import PlateBadge from '../../../components/common/PlateBadge'
+import BottomNav from '../../../components/layout/BottomNav'
+import { IconStop } from '../../../components/common/Icons'
 
 export default function ActiveSession() {
   const navigate  = useNavigate()

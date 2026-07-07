@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
-import { getSettings, getActiveSession } from '../utils/storage'
-import { requestPermission, notify } from '../utils/notifications'
-import { initialDetectorState, step } from '../utils/driveDetect'
+import { getSettings, getActiveSession } from '../../../services/storage'
+import { requestPermission, notify } from '../../../services/notifications'
+import { initialDetectorState, step } from '../../../utils/driveDetect'
 
 // Runs app-wide while the app is open (mounted once at the top level). Watches
 // movement and fires a start/stop prompt notification at the right moment.

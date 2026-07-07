@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getProfile, saveProfile, clearAllData, getSettings, saveSettings } from '../utils/storage'
-import { normalizePlate, isValidPlate } from '../utils/plate'
-import { currentTheme, setTheme } from '../utils/theme'
-import BottomNav from '../components/BottomNav'
-import { IconUser, IconMail } from '../components/Icons'
+import { getProfile, saveProfile, clearAllData, getSettings, saveSettings } from '../../../services/storage'
+import { normalizePlate, isValidPlate } from '../../../utils/plate'
+import { currentTheme, setTheme } from '../../../utils/theme'
+import BottomNav from '../../../components/layout/BottomNav'
+import { IconUser, IconMail } from '../../../components/common/Icons'
 
 export default function Settings() {
   const navigate = useNavigate()

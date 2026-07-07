@@ -1,8 +1,8 @@
 import { useNavigate, useLocation } from 'react-router-dom'
-import { formatDuration, generateReceipt } from '../utils/pdf'
-import { sessionCost, formatEuro } from '../utils/tariff'
-import PlateBadge from '../components/PlateBadge'
-import { IconDownload } from '../components/Icons'
+import { formatDuration, generateReceipt } from '../../../services/receipts'
+import { sessionCost, formatEuro } from '../../../services/tariffs'
+import PlateBadge from '../../../components/common/PlateBadge'
+import { IconDownload } from '../../../components/common/Icons'
 
 // Shown right after a session is stopped so the cost/duration land on screen
 // (not only in a notification, which many users have blocked). Reachable only

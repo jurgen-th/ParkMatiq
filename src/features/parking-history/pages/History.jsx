@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getSessions, getProfile, getSettings } from '../utils/storage'
-import { generateReceipt, formatDuration } from '../utils/pdf'
-import { sessionCost, savingsVsMeter, formatEuro } from '../utils/tariff'
-import BottomNav from '../components/BottomNav'
-import PlateBadge from '../components/PlateBadge'
-import { IconDownload } from '../components/Icons'
+import { getSessions, getProfile, getSettings } from '../../../services/storage'
+import { generateReceipt, formatDuration } from '../../../services/receipts'
+import { sessionCost, savingsVsMeter, formatEuro } from '../../../services/tariffs'
+import BottomNav from '../../../components/layout/BottomNav'
+import PlateBadge from '../../../components/common/PlateBadge'
+import { IconDownload } from '../../../components/common/Icons'
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 

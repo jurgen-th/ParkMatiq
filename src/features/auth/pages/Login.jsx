@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getProfile } from '../utils/storage'
-import { IconMail, IconLock, IconEye, IconEyeOff } from '../components/Icons'
+import { getProfile } from '../../../services/storage'
+import { IconMail, IconLock, IconEye, IconEyeOff } from '../../../components/common/Icons'
 
 export default function Login() {
   const navigate = useNavigate()

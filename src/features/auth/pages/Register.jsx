@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
-import { saveProfile } from '../utils/storage'
-import { normalizePlate, isValidPlate } from '../utils/plate'
-import { IconMail, IconLock, IconUser, IconEye, IconEyeOff } from '../components/Icons'
+import { saveProfile } from '../../../services/storage'
+import { normalizePlate, isValidPlate } from '../../../utils/plate'
+import { IconMail, IconLock, IconUser, IconEye, IconEyeOff } from '../../../components/common/Icons'
 
 export default function Register() {
   const navigate = useNavigate()
