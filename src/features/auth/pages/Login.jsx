@@ -1,21 +1,55 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { getProfile } from '../../../services/storage'
+import { supabase, backendEnabled } from '../../../services/backend/supabase'
+import { pullAll } from '../../../services/backend/sync'
 import { IconMail, IconLock, IconEye, IconEyeOff } from '../../../components/common/Icons'
+
+// NL-vriendelijke vertaling van de gangbare Supabase-auth fouten.
+function authErrorNL(error) {
+  const msg = error?.message || ''
+  if (msg.includes('Invalid login credentials')) return 'Onjuist e-mailadres of wachtwoord'
+  if (msg.includes('Email not confirmed')) return 'Bevestig eerst je e-mailadres via de link in je inbox'
+  return `Inloggen mislukt: ${msg}`
+}
 
 export default function Login() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
   const [showPw,   setShowPw]   = useState(false)
   const [error,    setError]    = useState('')
-  const [hint,     setHint]     = useState('')
+  const [hint,     setHint]     = useState(
+    location.state?.confirmNotice
+      ? 'Account aangemaakt. Bevestig je e-mailadres via de link in je inbox en log daarna in.'
+      : ''
+  )
+  const [busy,     setBusy]     = useState(false)
 
-  // Mock-auth: Supabase volgt later. Inloggen slaagt als er lokaal een
-  // profiel bestaat; anders sturen we door naar registreren.
-  function handleLogin() {
+  // Met backend: echte Supabase-login + data van de server halen.
+  // Zonder backend (mock): inloggen slaagt als er lokaal een profiel bestaat.
+  async function handleLogin() {
     if (!email.trim())    { setError('Vul je e-mailadres in'); return }
     if (!password.trim()) { setError('Vul je wachtwoord in'); return }
+
+    if (backendEnabled) {
+      setBusy(true)
+      const { error: err } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      })
+      if (err) {
+        setBusy(false)
+        setError(authErrorNL(err))
+        return
+      }
+      await pullAll()
+      setBusy(false)
+      navigate('/', { replace: true })
+      return
+    }
+
     if (getProfile()) {
       navigate('/', { replace: true })
     } else {
@@ -30,7 +64,7 @@ export default function Login() {
   return (
     <div className="screen screen-auth">
       <div className="auth-hero">
-        <div className="logo-icon">P</div>
+        <img className="logo-icon" src="./icon-192.png" alt="" />
         <div>
           <div className="auth-hero-name">ParkMatiq</div>
           <div className="auth-hero-tag">Slim parkeren</div>
@@ -77,8 +111,8 @@ export default function Login() {
 
         {error && <p className="form-error">{error}</p>}
 
-        <button className="btn btn-yellow" onClick={handleLogin}>
-          Inloggen
+        <button className="btn btn-yellow" onClick={handleLogin} disabled={busy}>
+          {busy ? 'Inloggen…' : 'Inloggen'}
         </button>
 
         <div className="auth-divider">of</div>

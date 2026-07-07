@@ -32,8 +32,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Supabase config comes from repo Actions variables (Settings -> Secrets
+      # and variables -> Actions -> Variables). The publishable key is safe to
+      # expose — it ships in the client bundle by design; RLS guards the data.
+      # Rollback to local-only: clear VITE_BACKEND and re-run the workflow.
       - name: Build
         run: npm run build
+        env:
+          VITE_BACKEND: ${{ vars.VITE_BACKEND }}
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
 
       - uses: actions/upload-pages-artifact@v5
         with:

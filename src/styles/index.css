@@ -1221,14 +1221,7 @@ html[data-theme='dark'] .switch-on .switch-knob { background: var(--navy); }
 .auth-hero .logo-icon {
   width: 44px;
   height: 44px;
-  background: var(--yellow);
-  color: var(--navy);
   border-radius: 13px;
-  font-size: 26px;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .auth-hero-name {

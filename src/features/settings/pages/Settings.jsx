@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getProfile, saveProfile, clearAllData, getSettings, saveSettings } from '../../../services/storage'
+import { supabase, backendEnabled } from '../../../services/backend/supabase'
+import { deleteAccount, logout } from '../../../services/backend/sync'
 import { normalizePlate, isValidPlate } from '../../../utils/plate'
 import { currentTheme, setTheme } from '../../../utils/theme'
 import BottomNav from '../../../components/layout/BottomNav'
@@ -19,6 +21,14 @@ export default function Settings() {
   const [budget, setBudget] = useState('')
   const [permit, setPermit] = useState('')
   const [endPref, setEndPref] = useState('balanced')
+  // Alleen echt ingelogde accounts (geen gastmodus) krijgen de account-UI.
+  const [signedIn, setSignedIn] = useState(false)
+
+  useEffect(() => {
+    if (backendEnabled) {
+      supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session))
+    }
+  }, [])
 
   useEffect(() => {
     const p = getProfile()
@@ -90,8 +100,28 @@ export default function Settings() {
     setTimeout(() => setSaved(false), 2000)
   }
 
-  function handleClear() {
-    if (!window.confirm('Weet je zeker dat je alle data wilt verwijderen? Dit kan niet ongedaan worden gemaakt.')) return
+  async function handleClear() {
+    const msg = signedIn
+      ? 'Weet je zeker dat je je account en alle data wilt verwijderen? Dit verwijdert ook alles op de server en kan niet ongedaan worden gemaakt.'
+      : 'Weet je zeker dat je alle data wilt verwijderen? Dit kan niet ongedaan worden gemaakt.'
+    if (!window.confirm(msg)) return
+    if (backendEnabled) {
+      // AVG/GDPR: serververwijdering moet echt lukken — bij een fout laten we
+      // de lokale data staan en melden we dat er niets is verwijderd.
+      try {
+        await deleteAccount()
+      } catch (e) {
+        window.alert(`Verwijderen op de server is mislukt (${e.message}). Er is niets verwijderd; probeer het later opnieuw.`)
+        return
+      }
+    }
+    clearAllData()
+    navigate('/login', { replace: true })
+  }
+
+  async function handleLogout() {
+    if (!window.confirm('Uitloggen? Lokale gegevens op dit apparaat worden gewist; bij je volgende login worden ze weer van de server geladen.')) return
+    await logout()
     clearAllData()
     navigate('/login', { replace: true })
   }
@@ -130,8 +160,12 @@ export default function Settings() {
                 onChange={e => { setEmail(e.target.value); setSaved(false) }}
                 placeholder="E-mailadres (optioneel)"
                 autoComplete="email"
+                disabled={signedIn && !!email}
               />
             </div>
+            {signedIn && !!email && (
+              <span className="field-hint">Dit is je inlog-e-mailadres; wijzigen kan nog niet in de app.</span>
+            )}
           </div>
 
           <div className="form-group">
@@ -253,11 +287,25 @@ export default function Settings() {
           </div>
         </div>
 
+        {signedIn && (
+          <div className="card">
+            <h2 className="card-title">Account</h2>
+            <p className="card-desc">Je gegevens worden gesynchroniseerd met je account.</p>
+            <button className="btn btn-ghost" onClick={handleLogout}>
+              Uitloggen
+            </button>
+          </div>
+        )}
+
         <div className="card card-danger">
           <h2 className="card-title">Gegevens</h2>
-          <p className="card-desc">Verwijdert je profiel, kenteken en alle parkeergeschiedenis.</p>
+          <p className="card-desc">
+            {signedIn
+              ? 'Verwijdert je account, profiel, kenteken en alle parkeergeschiedenis — ook op de server.'
+              : 'Verwijdert je profiel, kenteken en alle parkeergeschiedenis.'}
+          </p>
           <button className="btn-red-outline" onClick={handleClear}>
-            Verwijder alle data
+            {signedIn ? 'Verwijder account en alle data' : 'Verwijder alle data'}
           </button>
         </div>
 

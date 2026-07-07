@@ -1,8 +1,18 @@
 import { useState } from 'react'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { saveProfile } from '../../../services/storage'
+import { supabase, backendEnabled } from '../../../services/backend/supabase'
+import { pushAll } from '../../../services/backend/sync'
 import { normalizePlate, isValidPlate } from '../../../utils/plate'
 import { IconMail, IconLock, IconUser, IconEye, IconEyeOff } from '../../../components/common/Icons'
+
+function signUpErrorNL(error) {
+  const msg = error?.message || ''
+  if (msg.includes('already registered')) return 'Er bestaat al een account met dit e-mailadres'
+  if (msg.includes('at least 6 characters')) return 'Wachtwoord moet minimaal 6 tekens zijn'
+  if (msg.includes('invalid format')) return 'Dat lijkt geen geldig e-mailadres'
+  return `Registreren mislukt: ${msg}`
+}
 
 export default function Register() {
   const navigate = useNavigate()
@@ -16,8 +26,9 @@ export default function Register() {
   const [plate,    setPlate]    = useState('')
   const [showPw,   setShowPw]   = useState(false)
   const [error,    setError]    = useState('')
+  const [busy,     setBusy]     = useState(false)
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!name.trim()) { setError('Vul je naam in'); return }
     if (!guest) {
       if (!email.trim())    { setError('Vul je e-mailadres in'); return }
@@ -26,9 +37,36 @@ export default function Register() {
     if (!plate.trim())      { setError('Vul je kenteken in'); return }
     if (!isValidPlate(plate)) { setError('Dat lijkt geen geldig Nederlands kenteken'); return }
 
-    // Wachtwoord wordt bewust niet opgeslagen — echte auth volgt via Supabase.
+    // Het wachtwoord gaat alleen naar Supabase Auth (bcrypt-hash aan de
+    // serverkant); wij slaan het zelf nergens op. Gastmodus blijft lokaal.
     const profile = { name: name.trim(), plate: normalizePlate(plate) }
     if (!guest && email.trim()) profile.email = email.trim()
+
+    if (backendEnabled && !guest) {
+      setBusy(true)
+      const { data, error: err } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+      })
+      if (err) {
+        setBusy(false)
+        setError(signUpErrorNL(err))
+        return
+      }
+      saveProfile(profile)
+      if (data.session) {
+        // Direct ingelogd (e-mailbevestiging uit): seed de server met dit device.
+        await pushAll()
+        setBusy(false)
+        navigate('/', { replace: true })
+      } else {
+        // E-mailbevestiging staat aan: eerst bevestigen, dan inloggen.
+        setBusy(false)
+        navigate('/login', { state: { confirmNotice: true } })
+      }
+      return
+    }
+
     saveProfile(profile)
     navigate('/', { replace: true })
   }
@@ -40,7 +78,7 @@ export default function Register() {
   return (
     <div className="screen screen-auth">
       <div className="auth-hero">
-        <div className="logo-icon">P</div>
+        <img className="logo-icon" src="./icon-192.png" alt="" />
         <div>
           <div className="auth-hero-name">ParkMatiq</div>
           <div className="auth-hero-tag">Slim parkeren</div>
@@ -125,8 +163,8 @@ export default function Register() {
 
         {error && <p className="form-error">{error}</p>}
 
-        <button className="btn btn-yellow" onClick={handleSubmit}>
-          {guest ? 'Beginnen' : 'Account aanmaken'}
+        <button className="btn btn-yellow" onClick={handleSubmit} disabled={busy}>
+          {busy ? 'Even geduld…' : guest ? 'Beginnen' : 'Account aanmaken'}
         </button>
 
         <div className="auth-foot">
