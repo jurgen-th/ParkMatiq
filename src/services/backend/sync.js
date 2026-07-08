@@ -110,7 +110,15 @@ export async function pullAll() {
     else local.clearActiveSession()
   }
   if (rows) {
-    localStorage.setItem('pw_sessions', JSON.stringify(rows.map(r => r.data)))
+    // Merge in plaats van overschrijven: sessies die alleen lokaal bestaan
+    // (mislukte push, offline geparkeerd) alsnog naar de server sturen —
+    // anders blijven ze eeuwig achter op het device tot een logout ze wist.
+    const server = rows.map(r => r.data)
+    const serverIds = new Set(server.map(s => s.id))
+    const localOnly = local.getSessions().filter(s => s.id && !serverIds.has(s.id))
+    const merged = [...localOnly, ...server].sort((a, b) => b.id - a.id).slice(0, 30)
+    localStorage.setItem('pw_sessions', JSON.stringify(merged))
+    for (const s of localOnly) await pushSession(s)
   }
   return !!prof
 }
