@@ -24,6 +24,13 @@ create table if not exists public.sessions (
   primary key (user_id, id)
 );
 
+-- Table grants: Supabase projects no longer auto-grant table access to the
+-- authenticated role (secure-by-default, 2025+) — without these, every write
+-- fails with "permission denied" (403) before RLS is even evaluated.
+grant usage on schema public to authenticated;
+grant select, insert, update, delete on public.profiles to authenticated;
+grant select, insert, update, delete on public.sessions to authenticated;
+
 -- Row Level Security: users can only touch their own rows. This is the GDPR
 -- backbone — without a matching auth.uid() no row is readable or writable,
 -- even with the publishable key.

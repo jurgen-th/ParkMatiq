@@ -11,8 +11,30 @@ async function userId() {
   return data.session?.user?.id ?? null
 }
 
+// Sync errors must be visible in the app — a console.warn is invisible on a
+// phone (learned the hard way: missing table grants failed every push
+// silently). Subscribers (the banner in App.jsx) get the message; a
+// successful push clears it via onSyncOk.
+const errorListeners = new Set()
+const okListeners = new Set()
+
+export function onSyncError(fn) {
+  errorListeners.add(fn)
+  return () => errorListeners.delete(fn)
+}
+
+export function onSyncOk(fn) {
+  okListeners.add(fn)
+  return () => okListeners.delete(fn)
+}
+
 function warn(what, error) {
-  if (error) console.warn(`[sync] ${what} mislukt:`, error.message)
+  if (error) {
+    console.warn(`[sync] ${what} mislukt:`, error.message)
+    errorListeners.forEach(fn => fn(`${what} mislukt: ${error.message}`))
+  } else {
+    okListeners.forEach(fn => fn())
+  }
 }
 
 export async function pushProfile(profile) {
