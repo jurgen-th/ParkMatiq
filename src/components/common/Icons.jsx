@@ -43,6 +43,14 @@ export const IconLocate = props => (
   <Icon {...props}><circle cx="12" cy="12" r="7"/><path d="M12 1.5v3M12 19.5v3M1.5 12h3M19.5 12h3"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/></Icon>
 )
 
+export const IconBolt = props => (
+  <Icon {...props}><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></Icon>
+)
+
+export const IconNavigate = props => (
+  <Icon {...props}><path d="M3 11l19-9-9 19-2-8z"/></Icon>
+)
+
 export const IconSearch = props => (
   <Icon {...props}><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></Icon>
 )

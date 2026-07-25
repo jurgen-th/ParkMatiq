@@ -1,15 +1,18 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
-import { getProfile, getActiveSession, setActiveSession, getSettings } from '../../../services/storage'
-import { rateForSession } from '../../../services/tariffs'
+import { getProfile, getActiveSession, setActiveSession, getSettings, saveSettings } from '../../../services/storage'
+import { rateForSession, formatEuro } from '../../../services/tariffs'
+import { chargePointsAvailable } from '../../../services/charging'
 import { geocode } from '../../../services/geolocation'
 import { requestPermission, notify } from '../../../services/notifications'
 import { TILE_URL, TILE_ATTRIBUTION, userIcon } from '../../../utils/map'
 import BottomNav from '../../../components/layout/BottomNav'
 import PlateBadge from '../../../components/common/PlateBadge'
 import ParkingZones from '../../parking-zones/components/ParkingZones'
-import { IconPlay, IconLocate, IconSearch } from '../../../components/common/Icons'
+import ChargePoints from '../../charging/components/ChargePoints'
+import NavigateSheet from '../../../components/common/NavigateSheet'
+import { IconPlay, IconLocate, IconSearch, IconBolt, IconNavigate } from '../../../components/common/Icons'
 
 const DEFAULT_CENTER = [51.9225, 4.47917] // Rotterdam
 const GEO_OPTS = { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
@@ -55,7 +58,20 @@ export default function Home() {
   const [searchLabel, setSearchLabel] = useState('')
   const [searching, setSearching] = useState(false)
   const [searchErr, setSearchErr] = useState('')
+  const [tariffHere, setTariffHere] = useState(null)
+  const [showCharging, setShowCharging] = useState(false)
+  const [navDest, setNavDest] = useState(null)
   const recenterRef = useRef(null)
+
+  // Show what parking costs here *before* the user starts, so a free spot is
+  // never mistaken for a paid one.
+  useEffect(() => {
+    if (!location) { setTariffHere(null); return }
+    let alive = true
+    rateForSession(location[0], location[1], getSettings().permitZones)
+      .then(t => { if (alive) setTariffHere(t) })
+    return () => { alive = false }
+  }, [location])
 
   useEffect(() => {
     const p = getProfile()
@@ -64,6 +80,7 @@ export default function Home() {
     setProfile(p)
     setActive(getActiveSession())
     setLocEnabled(getSettings().location)
+    setShowCharging(!!getSettings().showCharging)
 
     if (getSettings().location) {
       navigator.geolocation?.getCurrentPosition(
@@ -79,17 +96,20 @@ export default function Home() {
     await requestPermission()
     // Capture a fix at tap time so the session map works even if the prefetch
     // hadn't resolved yet. Respects the location toggle in Settings.
-    const pos = getSettings().location ? (location ?? await getCurrentPosition()) : null
-    // Resolve the tariff from the parked location (falls back to a default rate
-    // when location is off or outside a mapped zone).
-    const { rate, zoneDesc } = await rateForSession(pos?.[0] ?? null, pos?.[1] ?? null)
+    const settings = getSettings()
+    const pos = settings.location ? (location ?? await getCurrentPosition()) : null
+    // Resolve the tariff from the parked location. Outside every paid zone the
+    // session is free (€0) — we never fall back to an invented rate.
+    const t = await rateForSession(pos?.[0] ?? null, pos?.[1] ?? null, settings.permitZones)
     setActiveSession({
       plate: profile.plate,
       startTime: new Date().toISOString(),
       lat: pos?.[0] ?? null,
       lon: pos?.[1] ?? null,
-      rate,
-      zoneDesc,
+      rate: t.rate,
+      zoneDesc: t.zoneDesc,
+      zoneId: t.zoneId,
+      tariff: t.tariff,
     })
     navigate('/session')
     notify('Parkeren gestart', `Kenteken ${profile.plate}`)
@@ -110,6 +130,12 @@ export default function Home() {
     } else {
       setSearchErr('Geen locatie gevonden')
     }
+  }
+
+  function toggleCharging() {
+    const next = !showCharging
+    setShowCharging(next)
+    saveSettings({ showCharging: next })
   }
 
   async function handleRecenter() {
@@ -133,6 +159,7 @@ export default function Home() {
         >
           <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} />
           <ParkingZones />
+          {showCharging && <ChargePoints onNavigate={setNavDest} />}
           <FlyToLocation position={location} />
           <MapController recenterRef={recenterRef} />
           {location && <Marker position={location} icon={userIcon} />}
@@ -145,6 +172,16 @@ export default function Home() {
             aria-label="Naar mijn locatie"
           >
             <IconLocate size={20} />
+          </button>
+        )}
+        {chargePointsAvailable && (
+          <button
+            className={`map-charging${showCharging ? ' on' : ''}`}
+            onClick={toggleCharging}
+            aria-pressed={showCharging}
+            aria-label="Laadpunten tonen"
+          >
+            <IconBolt size={20} />
           </button>
         )}
         <div className="zone-legend">
@@ -183,7 +220,16 @@ export default function Home() {
         {searching && <span className="map-search-status">Zoeken…</span>}
         {searchErr && <span className="map-search-status err">{searchErr}</span>}
         {!searching && !searchErr && searchLabel && (
-          <span className="map-search-status found">{searchLabel}</span>
+          <span className="map-search-status found">
+            <span className="search-found-label">{searchLabel}</span>
+            <button
+              type="button"
+              className="search-nav-btn"
+              onClick={() => setNavDest({ lat: searchPos[0], lon: searchPos[1], label: searchLabel })}
+            >
+              <IconNavigate size={13} /> Navigeer
+            </button>
+          </span>
         )}
       </form>
 
@@ -207,6 +253,15 @@ export default function Home() {
           </button>
         ) : (
           <>
+            {tariffHere && (
+              <p className={`start-hint${tariffHere.tariff === 'paid' ? '' : ' free'}`}>
+                {tariffHere.tariff === 'paid'
+                  ? `${formatEuro(tariffHere.rate)}/uur · ${tariffHere.zoneDesc}`
+                  : tariffHere.tariff === 'permit'
+                    ? `Vergunning · gratis in ${tariffHere.zoneDesc}`
+                    : 'Gratis parkeren hier · geen betaalde zone'}
+              </p>
+            )}
             <button
               className="btn btn-yellow"
               onClick={handleStart}
@@ -216,12 +271,14 @@ export default function Home() {
               {starting ? 'Bezig…' : 'Start parkeren'}
             </button>
             {!locEnabled && (
-              <p className="start-hint">Locatie staat uit — het standaardtarief wordt gebruikt.</p>
+              <p className="start-hint">Locatie staat uit — het tarief kan niet worden bepaald.</p>
             )}
           </>
         )}
         <BottomNav active="home" />
       </div>
+
+      <NavigateSheet destination={navDest} onClose={() => setNavDest(null)} />
     </div>
   )
 }

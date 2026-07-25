@@ -71,8 +71,12 @@ demo):
 - **Payment** — the onboarding "Betaalmethode" row is a demo placeholder. Real
   billing in NL requires a licensed parking provider / national register.
 - **Live tariffs** — parking zones are bundled statically
-  (`src/data/rotterdam-parking-zones.geojson`, refresh via
-  `scripts/build-zones.py`). Point `src/utils/zones.js` at a live feed when ready.
+  (`src/data/nl-parking-zones.geojson`, refresh via `scripts/build-zones.py`).
+  Point `src/utils/zones.js` at a live feed when ready.
+- **Live charge-point availability** — the EV layer (Open Charge Map, needs
+  `VITE_OCM_KEY`) shows locations and connectors only; OCM has no occupancy
+  data. Live status means NDW's DOT-NL (OCPI 2.2.1, free but registered) behind
+  a proxy that holds the credentials.
 - **Background auto start/stop** — impossible in a web PWA; needs the native
   wrapper below plus a Capacitor background-geolocation plugin.
 
