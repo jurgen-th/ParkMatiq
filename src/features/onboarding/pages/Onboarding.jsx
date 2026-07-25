@@ -26,7 +26,6 @@ export default function Onboarding() {
   const [payOn, setPayOn]           = useState(false)
   const [btOn, setBtOn]             = useState(false)
   const [permitOn, setPermitOn]     = useState(false)
-  const [permit, setPermit]         = useState('')
   const [budgetOn, setBudgetOn]     = useState(false)
   const [budget, setBudget]         = useState('')
   const [endPref, setEndPref]       = useState('balanced')
@@ -53,7 +52,9 @@ export default function Onboarding() {
       location: locationOn,
       paymentConnected: payOn,
       bluetoothConnected: btOn,
-      permitPostcode: permitOn ? permit.trim().toUpperCase() : '',
+      // The zone(s) the permit covers are picked in Settings — a permit is tied
+      // to a parking zone, which we can only match against the RDW zone data.
+      permitZones: [],
       monthlyBudget: budgetOn ? budget.trim() : '',
       endPreference: endPref,
     })
@@ -122,7 +123,10 @@ export default function Onboarding() {
               <Switch on={permitOn} onToggle={() => setPermitOn(v => !v)} label="Bewonersvergunning" />
             </div>
             <div className={`inline-input-wrap${permitOn ? ' open' : ''}`}>
-              <input className="ob-input mono" value={permit} onChange={e => setPermit(e.target.value)} placeholder="Postcode bijv. 3011 AB" />
+              <p className="ob-text" style={{ margin: 0 }}>
+                Kies straks bij Instellingen de parkeerzone van je vergunning — een
+                vergunning geldt per zone, niet per postcode.
+              </p>
             </div>
 
             <div className="ob-toggle-row">

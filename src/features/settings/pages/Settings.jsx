@@ -6,6 +6,7 @@ import { deleteAccount, logout } from '../../../services/backend/sync'
 import { normalizePlate, isValidPlate } from '../../../utils/plate'
 import { currentTheme, setTheme } from '../../../utils/theme'
 import BottomNav from '../../../components/layout/BottomNav'
+import PermitZones from '../components/PermitZones'
 import { IconUser, IconMail } from '../../../components/common/Icons'
 
 export default function Settings() {
@@ -19,7 +20,7 @@ export default function Settings() {
   const [locBlocked, setLocBlocked] = useState(false)
   const [darkOn, setDarkOn] = useState(false)
   const [budget, setBudget] = useState('')
-  const [permit, setPermit] = useState('')
+  const [permitZones, setPermitZones] = useState([])
   const [endPref, setEndPref] = useState('balanced')
   // Alleen echt ingelogde accounts (geen gastmodus) krijgen de account-UI.
   const [signedIn, setSignedIn] = useState(false)
@@ -39,7 +40,7 @@ export default function Settings() {
     const s = getSettings()
     setLocationOn(s.location)
     setBudget(s.monthlyBudget || '')
-    setPermit(s.permitPostcode || '')
+    setPermitZones(s.permitZones || [])
     setEndPref(s.endPreference || 'balanced')
     setDarkOn(currentTheme() === 'dark')
   }, [])
@@ -55,10 +56,9 @@ export default function Settings() {
     saveSettings({ monthlyBudget: v.trim() })
   }
 
-  function handlePermit(v) {
-    const up = v.toUpperCase()
-    setPermit(up)
-    saveSettings({ permitPostcode: up.trim() })
+  function handlePermitZones(next) {
+    setPermitZones(next)
+    saveSettings({ permitZones: next })
   }
 
   function handleEndPref(v) {
@@ -254,17 +254,7 @@ export default function Settings() {
             <span className="field-hint">Leeg = geen budget. Je voortgang staat bij Geschiedenis.</span>
           </div>
 
-          <div className="form-group">
-            <label>Bewonersvergunning (postcode)</label>
-            <div className="input-row">
-              <input
-                value={permit}
-                onChange={e => handlePermit(e.target.value)}
-                placeholder="bijv. 3011 AB"
-                autoCapitalize="characters"
-              />
-            </div>
-          </div>
+          <PermitZones zones={permitZones} onChange={handlePermitZones} />
 
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label>Sessie stoppen</label>

@@ -66,6 +66,10 @@ export default function ActiveSession() {
 
   const cost   = costFor(elapsed, session.rate)
   const parked = session.lat != null && session.lon != null
+  // Sessions started before the tariff states existed carry no `tariff` field;
+  // treat those as paid so their stored rate keeps showing.
+  const state  = session.tariff || 'paid'
+  const paid   = state === 'paid'
 
   return (
     <div className="screen">
@@ -78,7 +82,7 @@ export default function ActiveSession() {
           </div>
 
           <div className="sc-title">{session.zoneDesc || 'Parkeersessie'}</div>
-          <div className="sc-sub">Gestart om {startStr} · meter loopt</div>
+          <div className="sc-sub">Gestart om {startStr} · {paid ? 'meter loopt' : 'geen kosten'}</div>
 
           <div className="sc-tiles">
             <div className="sc-tile">
@@ -100,9 +104,18 @@ export default function ActiveSession() {
           <div className="sc-detail">
             <PlateBadge plate={session.plate} />
             <div className="sc-detail-txt">
-              <div className="sc-detail-primary">{formatEuro(session.rate)}/uur</div>
+              <div className="sc-detail-primary">
+                {paid
+                  ? `${formatEuro(session.rate)}/uur`
+                  : state === 'unknown' ? 'Onbekend' : 'Gratis'}
+              </div>
               <div className="sc-detail-secondary">
-                {session.zoneDesc ? 'Tarief uit zone · indicatief' : 'Standaardtarief · indicatief'}
+                {{
+                  paid:    'Tarief uit zone · indicatief',
+                  permit:  'Bewonersvergunning · geen kosten',
+                  free:    'Geen betaalde zone hier',
+                  unknown: 'Locatie onbekend · tarief niet bepaald',
+                }[state]}
               </div>
             </div>
           </div>

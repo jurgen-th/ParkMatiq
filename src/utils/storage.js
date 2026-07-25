@@ -9,7 +9,10 @@ const DEFAULT_SETTINGS = {
   onboardingDone: false,
   paymentConnected: false,
   bluetoothConnected: false,
-  permitPostcode: '',     // empty = no resident permit
+  // Resident permits are issued per parking zone, not per postcode. Each entry
+  // is { areaid, desc, municipality } as resolved from the RDW zone data.
+  permitZones: [],
+  showCharging: false,    // EV charge-point layer on the Home map
   monthlyBudget: '',      // empty = no budget set
   endPreference: 'balanced',
 }

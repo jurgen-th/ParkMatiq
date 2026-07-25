@@ -4,6 +4,17 @@ import { sessionCost, formatEuro } from '../../../services/tariffs'
 import PlateBadge from '../../../components/common/PlateBadge'
 import { IconDownload } from '../../../components/common/Icons'
 
+// Why a session cost what it did. Sessions from before the tariff states were
+// introduced have no `tariff` field and are shown as paid at their stored rate.
+function tariffLabel(session) {
+  switch (session.tariff || 'paid') {
+    case 'permit':  return 'Bewonersvergunning · gratis'
+    case 'free':    return 'Geen betaalde zone · gratis'
+    case 'unknown': return 'Onbekend · niet in rekening gebracht'
+    default:        return `${formatEuro(session.rate)}/uur`
+  }
+}
+
 // Shown right after a session is stopped so the cost/duration land on screen
 // (not only in a notification, which many users have blocked). Reachable only
 // via navigation state; a direct refresh falls back to Home.
@@ -35,7 +46,7 @@ export default function Summary() {
         <div className="summary-rows">
           <div className="summary-row"><span>Duur</span><span>{formatDuration(session.duration)}</span></div>
           <div className="summary-row"><span>Van — tot</span><span>{startStr} – {endStr}</span></div>
-          <div className="summary-row"><span>Tarief</span><span>{formatEuro(session.rate)}/uur</span></div>
+          <div className="summary-row"><span>Tarief</span><span>{tariffLabel(session)}</span></div>
           <div className="summary-row"><span>Kenteken</span><PlateBadge plate={session.plate} /></div>
         </div>
 
