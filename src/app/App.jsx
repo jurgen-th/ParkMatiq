@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Providers from './providers'
 import AppRouter from './router'
+import { supabase } from '../services/backend/supabase'
 import useDriveDetection from '../features/parking-session/hooks/useDriveDetection'
+import useParkingReminder from '../features/parking-session/hooks/useParkingReminder'
 import { backendEnabled } from '../services/backend/supabase'
 import { pullAll, onSyncError, onSyncOk } from '../services/backend/sync'
 
@@ -23,8 +26,23 @@ function SyncBanner() {
   )
 }
 
+// Supabase swallows the recovery token from the URL and signs the user in with
+// a short-lived session; that arrives as a PASSWORD_RECOVERY event, which is
+// our only cue to show the "choose a new password" screen.
+function RecoveryRedirect() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') navigate('/reset', { replace: true })
+    })
+    return () => data.subscription.unsubscribe()
+  }, [])
+  return null
+}
+
 export default function App() {
   useDriveDetection()
+  useParkingReminder()
 
   // Signed in from a previous visit? Refresh localStorage from the server in
   // the background (local-first: screens render local data immediately).
@@ -34,6 +52,7 @@ export default function App() {
   return (
     <Providers>
       {backendEnabled && <SyncBanner />}
+      {backendEnabled && <RecoveryRedirect />}
       <AppRouter />
     </Providers>
   )

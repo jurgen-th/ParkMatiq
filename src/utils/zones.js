@@ -2,18 +2,26 @@ import zonesUrl from '../data/nl-parking-zones.geojson?url'
 
 // Single cached fetch of the bundled GeoJSON, shared by the map layer and the
 // tariff lookup so the file is only requested once.
+//
+// Resolves to `null` when the file could not be loaded (offline first run, a
+// failed deploy). That is deliberately distinct from an empty zone list: missing
+// data must read as "tarief onbekend", never as "gratis parkeren". A failure
+// also clears the cache so the next caller retries.
 let cache = null
 
 export function loadZones() {
   if (!cache) {
     cache = fetch(zonesUrl)
-      .then(r => r.json())
-      .catch(() => ({ type: 'FeatureCollection', features: [] }))
+      .then(r => {
+        if (!r.ok) throw new Error(`zones ${r.status}`)
+        return r.json()
+      })
+      .catch(() => { cache = null; return null })
   }
   return cache
 }
 
-// Cached bounding box [minLon, minLat, maxLon, maxLat] for a feature. With ~2.6k
+// Cached bounding box [minLon, minLat, maxLon, maxLat] for a feature. With ~3k
 // nationwide zones, a cheap box test lets both the tariff lookup and the map
 // layer skip zones nowhere near the point/viewport instead of scanning polygons.
 export function featureBBox(f) {

@@ -4,7 +4,7 @@ import { MapContainer, TileLayer, Marker } from 'react-leaflet'
 import { getActiveSession, clearActiveSession, addSession } from '../../../services/storage'
 import { notify } from '../../../services/notifications'
 import { formatDuration } from '../../../services/receipts'
-import { costFor, formatEuro } from '../../../services/tariffs'
+import { costOf, rateAt, paidUntil, nextPaidStart, dayCapReached, formatEuro, formatWhen } from '../../../services/tariffs'
 import { TILE_URL, TILE_ATTRIBUTION, parkIcon } from '../../../utils/map'
 import PlateBadge from '../../../components/common/PlateBadge'
 import BottomNav from '../../../components/layout/BottomNav'
@@ -43,7 +43,7 @@ export default function ActiveSession() {
       id: startMs,
       endTime: new Date(endMs).toISOString(),
       duration,
-      cost: costFor(duration, session.rate),
+      cost: costOf(session, endMs),
     }
 
     clearActiveSession()
@@ -64,12 +64,23 @@ export default function ActiveSession() {
   const pad = v => String(v).padStart(2, '0')
   const timerStr = `${pad(h)}:${pad(m)}:${pad(s)}`
 
-  const cost   = costFor(elapsed, session.rate)
+  // `elapsed` drives the re-render; the cost itself comes from the zone's paid
+  // windows, so it stops climbing the moment paid hours end (and starts again
+  // when they resume for a car left overnight).
+  const cost   = costOf(session)
   const parked = session.lat != null && session.lon != null
   // Sessions started before the tariff states existed carry no `tariff` field;
-  // treat those as paid so their stored rate keeps showing.
-  const state  = session.tariff || 'paid'
+  // treat those as paid so their stored rate keeps showing. Zones with windows
+  // are re-evaluated live — a session that began in paid hours is free later.
+  const now    = new Date()
+  const rate   = session.windows ? rateAt(session.windows, now) : (session.rate ?? 0)
+  const state  = session.windows
+    ? (rate > 0 ? 'paid' : 'evening')
+    : (session.tariff || 'paid')
   const paid   = state === 'paid'
+  const until  = paid && session.windows ? paidUntil(session.windows, now) : null
+  const resume = state === 'evening' && session.windows ? nextPaidStart(session.windows, now) : null
+  const capped = dayCapReached(session)
 
   return (
     <div className="screen">
@@ -106,15 +117,18 @@ export default function ActiveSession() {
             <div className="sc-detail-txt">
               <div className="sc-detail-primary">
                 {paid
-                  ? `${formatEuro(session.rate)}/uur`
+                  ? `${formatEuro(rate)}/uur`
                   : state === 'unknown' ? 'Onbekend' : 'Gratis'}
               </div>
               <div className="sc-detail-secondary">
                 {{
-                  paid:    'Tarief uit zone · indicatief',
+                  paid:    capped
+                    ? `Dagmaximum bereikt · ${formatEuro(session.dayCap)}`
+                    : until ? `Meter loopt tot ${formatWhen(until.getTime())}` : 'Tarief uit zone · indicatief',
+                  evening: resume ? `Buiten betaalde uren · tarief vanaf ${formatWhen(resume.getTime())}` : 'Buiten betaalde uren',
                   permit:  'Bewonersvergunning · geen kosten',
                   free:    'Geen betaalde zone hier',
-                  unknown: 'Locatie onbekend · tarief niet bepaald',
+                  unknown: 'Tarief niet bepaald · we rekenen niets',
                 }[state]}
               </div>
             </div>

@@ -1243,6 +1243,18 @@ html[data-theme='dark'] .savings-icon { background: rgba(109, 255, 154, 0.12); }
 
 .card-danger { border-color: var(--danger-border); }
 
+/* Bulleted explanation lists (privacy screen) */
+.prose-list {
+  margin: 0 0 14px;
+  padding-left: 18px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.prose-list li { margin-bottom: 8px; }
+.prose-list strong { color: var(--text); }
+
 /* ─── Toggle row / switch ────────────────────────────────────── */
 .toggle-row {
   display: flex;
@@ -1475,6 +1487,12 @@ html[data-theme='dark'] .switch-on .switch-knob { background: var(--navy); }
   font-size: inherit;
   font-weight: 600;
   padding: 0;
+}
+
+.auth-forgot {
+  display: block;
+  margin: 14px auto 0;
+  font-size: 14px;
 }
 
 .auth-skip {

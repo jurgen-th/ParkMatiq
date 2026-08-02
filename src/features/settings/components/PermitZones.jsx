@@ -61,7 +61,9 @@ export default function PermitZones({ zones, onChange }) {
       )
     })
     if (!pos) { setStatus('Locatie niet beschikbaar.'); return }
-    const zone = zoneForPoint(pos[0], pos[1], data || await loadZones())
+    const zones = data || await loadZones()
+    if (!zones) { setStatus('Zonegegevens niet geladen — probeer het later opnieuw.'); return }
+    const zone = zoneForPoint(pos[0], pos[1], zones)
     if (!zone) { setStatus('Hier is geen betaalde parkeerzone — parkeren is al gratis.'); return }
     setStatus('')
     add({ areaid: zone.areaid, desc: zone.desc, municipality: zone.municipality })

@@ -1,4 +1,19 @@
 import { jsPDF } from 'jspdf'
+import { sessionCost, formatEuro } from './tariff'
+
+// Why the stay cost what it cost. A receipt that only lists times is no use to
+// anyone claiming it back, so the basis for the amount is spelled out.
+function tariffBasis(session) {
+  switch (session.tariff || 'paid') {
+    case 'permit':  return 'Bewonersvergunning — geen kosten'
+    case 'free':    return 'Geen betaalde zone — geen kosten'
+    case 'evening': return sessionCost(session) > 0
+      ? `${formatEuro(session.rate)}/uur, deels buiten betaalde uren`
+      : 'Buiten betaalde uren — geen kosten'
+    case 'unknown': return 'Tarief onbekend — niets in rekening gebracht'
+    default:        return `${formatEuro(session.rate)}/uur, per minuut afgerekend`
+  }
+}
 
 export function formatDuration(totalSeconds) {
   const h = Math.floor(totalSeconds / 3600)
@@ -20,10 +35,11 @@ export function generateReceipt(session) {
   const startStr = startDate.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   const endStr = endDate.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   const durationStr = formatDuration(session.duration)
-  const refNum = `PW-${session.id}`
+  const refNum = `PM-${session.id}`
+  const cost = sessionCost(session)
 
-  // Header bar
-  doc.setFillColor(27, 69, 200)
+  // Header bar, in the app's navy
+  doc.setFillColor(0, 45, 114)
   doc.rect(0, 0, 210, 42, 'F')
 
   doc.setTextColor(255, 255, 255)
@@ -39,18 +55,34 @@ export function generateReceipt(session) {
   doc.setDrawColor(200, 210, 240)
   doc.setLineWidth(0.4)
 
-  // Body rows
+  // Amount first — it is what the receipt is for.
+  doc.setTextColor(30, 30, 30)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(30)
+  doc.text(formatEuro(cost), 22, 62)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.setTextColor(120, 120, 120)
+  doc.text('Totaalbedrag', 22, 68)
+
+  const location = session.lat != null && session.lon != null
+    ? `${session.lat.toFixed(5)}, ${session.lon.toFixed(5)}`
+    : 'Niet vastgelegd'
+
   doc.setTextColor(30, 30, 30)
   const rows = [
     ['Datum',      dateStr],
     ['Start',      startStr],
     ['Einde',      endStr],
     ['Duur',       durationStr],
+    ['Zone',       session.zoneDesc || 'Geen betaalde zone'],
+    ['Tarief',     tariffBasis(session)],
+    ['Locatie',    location],
     ['Kenteken',   session.plate],
     ['Referentie', refNum],
   ]
 
-  const startY = 62
+  const startY = 88
   const lineH = 13
 
   doc.line(20, startY - 6, 190, startY - 6)
@@ -70,7 +102,8 @@ export function generateReceipt(session) {
   doc.setFontSize(9)
   doc.setTextColor(160, 160, 160)
   doc.text('Bedankt voor het gebruik van ParkMatiq', 105, 278, { align: 'center' })
-  doc.text('parkmatiq.app', 105, 284, { align: 'center' })
+  doc.text('Tarieven zijn indicatief en gebaseerd op open data van de RDW.',
+    105, 284, { align: 'center' })
 
   const fileName = `ParkMatiq_${session.plate}_${startDate.toISOString().slice(0, 10)}.pdf`
   doc.save(fileName)

@@ -4,6 +4,7 @@ import { getProfile, saveProfile, clearAllData, getSettings, saveSettings } from
 import { supabase, backendEnabled } from '../../../services/backend/supabase'
 import { deleteAccount, logout } from '../../../services/backend/sync'
 import { normalizePlate, isValidPlate } from '../../../utils/plate'
+import { exportData } from '../../../utils/dataExport'
 import { currentTheme, setTheme } from '../../../utils/theme'
 import BottomNav from '../../../components/layout/BottomNav'
 import PermitZones from '../components/PermitZones'
@@ -20,10 +21,16 @@ export default function Settings() {
   const [locBlocked, setLocBlocked] = useState(false)
   const [darkOn, setDarkOn] = useState(false)
   const [budget, setBudget] = useState('')
+  const [maxDaily, setMaxDaily] = useState('')
   const [permitZones, setPermitZones] = useState([])
   const [endPref, setEndPref] = useState('balanced')
   // Alleen echt ingelogde accounts (geen gastmodus) krijgen de account-UI.
   const [signedIn, setSignedIn] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [newEmail, setNewEmail] = useState('')
+  const [accountMsg, setAccountMsg] = useState('')
+  const [dataMsg, setDataMsg] = useState('')
+  const [accountBusy, setAccountBusy] = useState(false)
 
   useEffect(() => {
     if (backendEnabled) {
@@ -40,6 +47,7 @@ export default function Settings() {
     const s = getSettings()
     setLocationOn(s.location)
     setBudget(s.monthlyBudget || '')
+    setMaxDaily(s.maxDailyCost || '')
     setPermitZones(s.permitZones || [])
     setEndPref(s.endPreference || 'balanced')
     setDarkOn(currentTheme() === 'dark')
@@ -54,6 +62,11 @@ export default function Settings() {
   function handleBudget(v) {
     setBudget(v)
     saveSettings({ monthlyBudget: v.trim() })
+  }
+
+  function handleMaxDaily(v) {
+    setMaxDaily(v)
+    saveSettings({ maxDailyCost: v.trim() })
   }
 
   function handlePermitZones(next) {
@@ -119,6 +132,32 @@ export default function Settings() {
     navigate('/login', { replace: true })
   }
 
+  function handleExport() {
+    const count = exportData()
+    setDataMsg(`Bestand gedownload met ${count} parkeersessie${count === 1 ? '' : 's'}.`)
+  }
+
+  async function handlePassword() {
+    if (newPassword.length < 8) { setAccountMsg('Kies een wachtwoord van minstens 8 tekens.'); return }
+    setAccountBusy(true)
+    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    setAccountBusy(false)
+    setNewPassword('')
+    setAccountMsg(error ? `Wijzigen mislukt: ${error.message}` : 'Je wachtwoord is gewijzigd.')
+  }
+
+  // Supabase mailt een bevestiging naar het nieuwe adres; pas na die link
+  // verandert het inlogadres. Het profiel volgt zodra de wijziging rond is.
+  async function handleEmail() {
+    if (!newEmail.trim()) { setAccountMsg('Vul een nieuw e-mailadres in.'); return }
+    setAccountBusy(true)
+    const { error } = await supabase.auth.updateUser({ email: newEmail.trim() })
+    setAccountBusy(false)
+    if (error) { setAccountMsg(`Wijzigen mislukt: ${error.message}`); return }
+    setNewEmail('')
+    setAccountMsg('Bevestig de wijziging via de link in je nieuwe mailbox.')
+  }
+
   async function handleLogout() {
     if (!window.confirm('Uitloggen? Lokale gegevens op dit apparaat worden gewist; bij je volgende login worden ze weer van de server geladen.')) return
     await logout()
@@ -164,7 +203,7 @@ export default function Settings() {
               />
             </div>
             {signedIn && !!email && (
-              <span className="field-hint">Dit is je inlog-e-mailadres; wijzigen kan nog niet in de app.</span>
+              <span className="field-hint">Dit is je inlog-e-mailadres; wijzig het bij Account.</span>
             )}
           </div>
 
@@ -254,6 +293,23 @@ export default function Settings() {
             <span className="field-hint">Leeg = geen budget. Je voortgang staat bij Geschiedenis.</span>
           </div>
 
+          <div className="form-group">
+            <label>Maximum per dag (€)</label>
+            <div className="input-row">
+              <input
+                type="text"
+                inputMode="decimal"
+                value={maxDaily}
+                onChange={e => handleMaxDaily(e.target.value)}
+                placeholder="bijv. 15"
+              />
+            </div>
+            <span className="field-hint">
+              Boven dit bedrag lopen de kosten van een dag niet verder op. Heeft de zone
+              zelf een lager dagtarief, dan geldt dat. Leeg = geen maximum.
+            </span>
+          </div>
+
           <PermitZones zones={permitZones} onChange={handlePermitZones} />
 
           <div className="form-group" style={{ marginBottom: 0 }}>
@@ -281,14 +337,69 @@ export default function Settings() {
           <div className="card">
             <h2 className="card-title">Account</h2>
             <p className="card-desc">Je gegevens worden gesynchroniseerd met je account.</p>
+
+            <div className="form-group">
+              <label>Nieuw wachtwoord</label>
+              <div className="input-row">
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={e => { setNewPassword(e.target.value); setAccountMsg('') }}
+                  placeholder="Minstens 8 tekens"
+                  autoComplete="new-password"
+                />
+              </div>
+              <button className="btn btn-ghost btn-sm" onClick={handlePassword} disabled={accountBusy}>
+                Wachtwoord wijzigen
+              </button>
+            </div>
+
+            <div className="form-group">
+              <label>Inlog-e-mailadres wijzigen</label>
+              <div className="input-row">
+                <IconMail size={17} />
+                <input
+                  type="email"
+                  value={newEmail}
+                  onChange={e => { setNewEmail(e.target.value); setAccountMsg('') }}
+                  placeholder={email || 'Nieuw e-mailadres'}
+                  autoComplete="email"
+                />
+              </div>
+              <button className="btn btn-ghost btn-sm" onClick={handleEmail} disabled={accountBusy}>
+                E-mailadres wijzigen
+              </button>
+              <span className="field-hint">
+                Je krijgt een bevestigingsmail op het nieuwe adres. Het oude adres blijft
+                werken tot je die link opent.
+              </span>
+            </div>
+
+            {accountMsg && <p className="form-hint">{accountMsg}</p>}
+
             <button className="btn btn-ghost" onClick={handleLogout}>
               Uitloggen
             </button>
           </div>
         )}
 
+        <div className="card">
+          <h2 className="card-title">Jouw gegevens</h2>
+          <p className="card-desc">
+            Download alles wat de app van je bewaart — profiel, instellingen en
+            parkeergeschiedenis — als JSON-bestand.
+          </p>
+          <button className="btn btn-ghost" onClick={handleExport}>
+            Download mijn gegevens
+          </button>
+          {dataMsg && <p className="form-hint">{dataMsg}</p>}
+          <button className="btn btn-ghost" onClick={() => navigate('/privacy')}>
+            Privacy en gegevens
+          </button>
+        </div>
+
         <div className="card card-danger">
-          <h2 className="card-title">Gegevens</h2>
+          <h2 className="card-title">Gegevens verwijderen</h2>
           <p className="card-desc">
             {signedIn
               ? 'Verwijdert je account, profiel, kenteken en alle parkeergeschiedenis — ook op de server.'

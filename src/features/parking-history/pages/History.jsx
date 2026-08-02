@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getSessions, getProfile, getSettings } from '../../../services/storage'
 import { generateReceipt, formatDuration } from '../../../services/receipts'
-import { sessionCost, savingsVsMeter, formatEuro } from '../../../services/tariffs'
+import { sessionCost, savingsVsMeter, formatEuro, parseAmount } from '../../../services/tariffs'
 import BottomNav from '../../../components/layout/BottomNav'
 import PlateBadge from '../../../components/common/PlateBadge'
 import { IconDownload } from '../../../components/common/Icons'
@@ -34,8 +34,8 @@ export default function History() {
   })
   const saved = monthSessions.reduce((sum, s) => sum + savingsVsMeter(s), 0)
   const spent = monthSessions.reduce((sum, s) => sum + sessionCost(s), 0)
-  const budgetNum = parseFloat(String(budget).replace(',', '.'))
-  const hasBudget = !Number.isNaN(budgetNum) && budgetNum > 0
+  const budgetNum = parseAmount(budget)
+  const hasBudget = budgetNum != null
   const budgetPct = hasBudget ? Math.min(100, (spent / budgetNum) * 100) : 0
 
   return (

@@ -70,6 +70,21 @@ export default function Login() {
     }
   }
 
+  // Sends the recovery mail. The link comes back to the app, where Supabase
+  // turns the token into a short-lived session and the app routes to /reset
+  // (see RecoveryRedirect in app/App.jsx).
+  async function handleForgot() {
+    if (!email.trim()) { setError('Vul eerst je e-mailadres in'); return }
+    setBusy(true)
+    setError('')
+    const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}${window.location.pathname}`,
+    })
+    setBusy(false)
+    if (err) { setError(`Versturen mislukt: ${err.message}`); return }
+    setHint('We hebben je een e-mail gestuurd om je wachtwoord opnieuw in te stellen.')
+  }
+
   function handleKey(e) {
     if (e.key === 'Enter') handleLogin()
   }
@@ -128,14 +143,11 @@ export default function Login() {
           {busy ? 'Inloggen…' : 'Inloggen'}
         </button>
 
-        <div className="auth-divider">of</div>
-
-        <button
-          className="btn btn-ghost"
-          onClick={() => setHint('Inloggen met Google komt binnenkort.')}
-        >
-          Doorgaan met Google
-        </button>
+        {backendEnabled && (
+          <button className="auth-link auth-forgot" onClick={handleForgot} disabled={busy}>
+            Wachtwoord vergeten?
+          </button>
+        )}
 
         {hint && <p className="form-hint" style={{ marginTop: 10, textAlign: 'center' }}>{hint}</p>}
 

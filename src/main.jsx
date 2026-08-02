@@ -1,5 +1,15 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+// Fonts are bundled, not loaded from Google's CDN: hotlinking them sends every
+// visitor's IP address to a third party, which is exactly what the AVG asks us
+// not to do. Only the weights the stylesheet actually uses are imported.
+import '@fontsource/dm-sans/latin-400.css'
+import '@fontsource/dm-sans/latin-500.css'
+import '@fontsource/dm-sans/latin-600.css'
+import '@fontsource/dm-sans/latin-700.css'
+import '@fontsource/dm-sans/latin-800.css'
+import '@fontsource/dm-mono/latin-400.css'
+import '@fontsource/dm-mono/latin-500.css'
 import 'leaflet/dist/leaflet.css'
 import './styles/index.css'
 import App from './app/App'

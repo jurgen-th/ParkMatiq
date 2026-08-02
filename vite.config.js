@@ -13,8 +13,8 @@ export default defineConfig({
         name: 'ParkMatiq',
         short_name: 'ParkMatiq',
         description: 'Slim parkeren — start en stop een parkeersessie, bewaar je geschiedenis, download je bewijs.',
-        theme_color: '#1B45C8',
-        background_color: '#1B45C8',
+        theme_color: '#002D72',
+        background_color: '#002D72',
         display: 'standalone',
         orientation: 'portrait',
         start_url: './',
@@ -41,8 +41,23 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        // woff2 is in here because the fonts are ours now: leaving them out
+        // would make an offline launch fall back to system fonts.
+        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         runtimeCaching: [
+          {
+            // The zone data decides what a session costs, so it must survive a
+            // lost connection: without it the app can only say "tarief
+            // onbekend". Cached on first use rather than precached — it is
+            // several MB and not every session needs it immediately.
+            urlPattern: /\.geojson$/i,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'parking-zones',
+              expiration: { maxEntries: 2, maxAgeSeconds: 60 * 60 * 24 * 90 },
+              cacheableResponse: { statuses: [0, 200] }
+            }
+          },
           {
             urlPattern: /^https:\/\/[abcd]\.basemaps\.cartocdn\.com\/.*/i,
             handler: 'CacheFirst',

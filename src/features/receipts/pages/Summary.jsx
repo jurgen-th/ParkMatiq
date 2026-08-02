@@ -10,6 +10,9 @@ function tariffLabel(session) {
   switch (session.tariff || 'paid') {
     case 'permit':  return 'Bewonersvergunning · gratis'
     case 'free':    return 'Geen betaalde zone · gratis'
+    // Started outside paid hours — but a car left overnight rolls into them.
+    case 'evening': return sessionCost(session) > 0
+      ? 'Deels binnen betaalde uren' : 'Buiten betaalde uren'
     case 'unknown': return 'Onbekend · niet in rekening gebracht'
     default:        return `${formatEuro(session.rate)}/uur`
   }

@@ -14,8 +14,14 @@ const DEFAULT_SETTINGS = {
   permitZones: [],
   showCharging: false,    // EV charge-point layer on the Home map
   monthlyBudget: '',      // empty = no budget set
+  maxDailyCost: '',       // driver's own ceiling per day; empty = no ceiling
   endPreference: 'balanced',
 }
+
+// How many sessions we keep. Receipts are the reason: a driver claiming parking
+// back needs last year's stay, not just last month's. localStorage holds a few
+// MB and a session is well under a kilobyte, so this is comfortably within it.
+export const MAX_SESSIONS = 500
 
 function read(key, fallback) {
   try {
@@ -41,8 +47,14 @@ export function getSessions() {
 export function addSession(session) {
   const sessions = getSessions()
   sessions.unshift(session)
-  if (sessions.length > 30) sessions.pop()
+  if (sessions.length > MAX_SESSIONS) sessions.length = MAX_SESSIONS
   localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions))
+}
+
+// Used by the server sync after merging local and remote history. Kept here so
+// the storage key stays private to this module.
+export function replaceSessions(sessions) {
+  localStorage.setItem(SESSIONS_KEY, JSON.stringify(sessions.slice(0, MAX_SESSIONS)))
 }
 
 export function getActiveSession() {

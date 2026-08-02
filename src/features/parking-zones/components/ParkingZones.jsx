@@ -6,9 +6,9 @@ import { loadZones, featureBBox } from '../../../utils/zones'
 // render nothing (the whole-country view would be thousands of polygons).
 const MIN_ZOOM = 12
 
-// Colour ramp by indicative hourly tariff (EUR/hour). Higher = warmer.
+// Colour ramp by peak hourly tariff (EUR/hour). Higher = warmer.
 function colorFor(eur) {
-  if (eur == null)  return '#9AA3B8' // unknown / no current daytime tariff
+  if (eur == null)  return '#9AA3B8' // paid zone, tariff not resolvable
   if (eur <= 1)     return '#4ADE80' // cheap outer zones
   if (eur <= 2.5)   return '#FBBF24'
   if (eur <= 4)     return '#FB923C'
@@ -16,21 +16,25 @@ function colorFor(eur) {
 }
 
 function style(feature) {
-  const c = colorFor(feature.properties.eurPerHour)
+  const eur = feature.properties.maxEurPerHour
+  const c = colorFor(eur)
   return {
     color: c,
     weight: 2,
     fillColor: c,
-    fillOpacity: 0.35,
-    opacity: 0.95,
+    // Zones with an unresolved tariff are drawn fainter: they mark "check the
+    // sign here", not a priced zone.
+    fillOpacity: eur == null ? 0.18 : 0.35,
+    opacity: eur == null ? 0.6 : 0.95,
+    dashArray: eur == null ? '4 4' : undefined,
   }
 }
 
 function onEachFeature(feature, layer) {
-  const { desc, eurPerHour } = feature.properties
-  const price = eurPerHour
-    ? `€${eurPerHour.toFixed(2).replace('.', ',')}/uur`
-    : 'Geen dagtarief'
+  const { desc, maxEurPerHour } = feature.properties
+  const price = maxEurPerHour
+    ? `tot €${maxEurPerHour.toFixed(2).replace('.', ',')}/uur`
+    : 'Tarief onbekend'
   layer.bindPopup(
     `<strong>${desc}</strong><br>${price}` +
     `<br><span style="color:#8B92A8;font-size:11px">Tarief indicatief · demo</span>`

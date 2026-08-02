@@ -86,8 +86,9 @@ export async function pushAll() {
   for (const s of local.getSessions()) await pushSession(s)
 }
 
-// After login (and on app start while signed in): server wins, localStorage
-// is overwritten. Writes via utils/storage directly so nothing echoes back up.
+// After login (and on app start while signed in): the profile comes from the
+// server, sessions are merged both ways (see below). Writes via utils/storage
+// directly so nothing echoes back up.
 export async function pullAll() {
   const id = await userId()
   if (!id) return false
@@ -95,7 +96,7 @@ export async function pullAll() {
   const [{ data: prof, error: pErr }, { data: rows, error: sErr }] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', id).maybeSingle(),
     supabase.from('sessions').select('data').eq('user_id', id)
-      .order('id', { ascending: false }).limit(30),
+      .order('id', { ascending: false }).limit(local.MAX_SESSIONS),
   ])
   warn('profiel ophalen', pErr)
   warn('sessies ophalen', sErr)
@@ -116,8 +117,8 @@ export async function pullAll() {
     const server = rows.map(r => r.data)
     const serverIds = new Set(server.map(s => s.id))
     const localOnly = local.getSessions().filter(s => s.id && !serverIds.has(s.id))
-    const merged = [...localOnly, ...server].sort((a, b) => b.id - a.id).slice(0, 30)
-    localStorage.setItem('pw_sessions', JSON.stringify(merged))
+    const merged = [...localOnly, ...server].sort((a, b) => b.id - a.id).slice(0, local.MAX_SESSIONS)
+    local.replaceSessions(merged)
     for (const s of localOnly) await pushSession(s)
   }
   return !!prof

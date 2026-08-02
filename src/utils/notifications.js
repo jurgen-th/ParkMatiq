@@ -13,10 +13,10 @@ export function notify(title, body) {
   try {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.ready
-        .then(reg => reg.showNotification(title, { body, icon: './icon.svg' }))
+        .then(reg => reg.showNotification(title, { body, icon: './icon-192.png' }))
         .catch(() => {})
     } else {
-      new Notification(title, { body, icon: './icon.svg' })
+      new Notification(title, { body, icon: './icon-192.png' })
     }
   } catch {
     /* notifications must never break the calling flow */

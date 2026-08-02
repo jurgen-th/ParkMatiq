@@ -4,8 +4,10 @@ Slim parkeren — a Dutch parking-session PWA. Start and stop a parking session,
 see an honest per-minute cost, keep your history, and download a receipt.
 
 Stack: React 18 + Vite 5, react-leaflet (CARTO Voyager tiles), jsPDF, PWA via
-`vite-plugin-pwa`. State persists in `localStorage`. Wrapped for Android/iOS
-with Capacitor.
+`vite-plugin-pwa`, Supabase for auth and cross-device sync. State persists in
+`localStorage` first and mirrors to the server in the background. Fonts are
+bundled (`@fontsource`), not hotlinked from Google. Wrapped for Android/iOS with
+Capacitor.
 
 ## Develop
 
@@ -51,6 +53,24 @@ existing utility (e.g. `services/storage` → `utils/storage`). To swap an
 implementation (a `localStorageAdapter` for a `supabaseAdapter` or `apiAdapter`),
 you change only the service module; no feature code changes.
 
+## Parking tariffs
+
+`scripts/build-zones.py` turns the RDW open-data parking sets into
+`src/data/nl-parking-zones.geojson`. A zone is not one price: it points at a
+**weekly schedule** of `[weekday, startMinute, endMinute, €/hour]` windows
+(shared in a top-level `schedules` map), plus a `dayCap` where the municipality
+publishes a dagtarief. Outside every window parking is free, which is why an
+evening or Sunday stay costs nothing.
+
+Zones whose tariff cannot be resolved from RDW ship with `sched: null` and are
+shown as "tarief onbekend" — never as free. Dropping them used to make whole
+municipalities (Maastricht, Gouda, …) look like free parking.
+
+`src/utils/tariff.js` is the only place that turns this into money:
+`rateAt`, `costBetween` (bills only minutes inside paid windows, capped per
+day), `paidUntil`/`nextPaidStart` for the UI. A session stores the windows and
+cap it started under, so a later data refresh can't reprice it.
+
 ## Data & backend seam
 
 **All persistence goes through a single boundary: [`src/services/storage/index.js`](src/services/storage/index.js),**
@@ -63,11 +83,14 @@ a real backend (e.g. Supabase), reimplement the storage functions
 turn async, so the handful of call sites (Home, ActiveSession, History,
 Settings, Onboarding) will need `await`; nothing else changes.
 
-What still needs a backend/provider to go live (deliberately stubbed for the
-demo):
+**Auth and sync are live** when `VITE_BACKEND=supabase`: real email/password
+sign-up, sign-in, password reset and account deletion run against Supabase, and
+`services/backend/sync.js` mirrors every mutation to the server so a second
+device sees the same history. Without the env var the app runs fully local, and
+"Doorgaan zonder account" keeps that path open even when the backend is on.
 
-- **Auth** — `Login`/`Register` use mock auth: a profile in `localStorage`,
-  passwords never stored. Swap for real auth (Supabase) before public release.
+What still needs a provider to go live:
+
 - **Payment** — the onboarding "Betaalmethode" row is a demo placeholder. Real
   billing in NL requires a licensed parking provider / national register.
 - **Live tariffs** — parking zones are bundled statically

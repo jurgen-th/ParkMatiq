@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
 import { getProfile, getActiveSession, setActiveSession, getSettings, saveSettings } from '../../../services/storage'
-import { rateForSession, formatEuro } from '../../../services/tariffs'
+import { rateForSession, formatEuro, formatWhen, effectiveDayCap, parseAmount } from '../../../services/tariffs'
 import { chargePointsAvailable } from '../../../services/charging'
 import { geocode } from '../../../services/geolocation'
 import { requestPermission, notify } from '../../../services/notifications'
@@ -16,6 +16,31 @@ import { IconPlay, IconLocate, IconSearch, IconBolt, IconNavigate } from '../../
 
 const DEFAULT_CENTER = [51.9225, 4.47917] // Rotterdam
 const GEO_OPTS = { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
+
+// States in which starting a session costs nothing (shown in green).
+const FREE_STATES = new Set(['permit', 'free', 'evening'])
+
+// What parking here costs *right now*, said plainly. Paid hours end in the
+// evening and on Sunday in most of the country, so a zone being paid at all is
+// not the same as it being paid at this moment.
+function tariffHint(t) {
+  switch (t.tariff) {
+    case 'paid':
+      return `${formatEuro(t.rate)}/uur · ${t.zoneDesc}` +
+        (t.paidUntil ? ` · gratis vanaf ${formatWhen(t.paidUntil)}` : '')
+    case 'permit':
+      return `Vergunning · gratis in ${t.zoneDesc}`
+    case 'evening':
+      return 'Gratis nu · betaalde zone' +
+        (t.nextPaid ? `, tarief vanaf ${formatWhen(t.nextPaid)}` : '')
+    case 'free':
+      return 'Gratis parkeren hier · geen betaalde zone'
+    default:
+      return t.zoneDesc
+        ? `Betaalde zone · tarief onbekend, we rekenen niets`
+        : 'Tarief onbekend · we rekenen niets'
+  }
+}
 
 function getCurrentPosition() {
   return new Promise(resolve => {
@@ -99,7 +124,9 @@ export default function Home() {
     const settings = getSettings()
     const pos = settings.location ? (location ?? await getCurrentPosition()) : null
     // Resolve the tariff from the parked location. Outside every paid zone the
-    // session is free (€0) — we never fall back to an invented rate.
+    // session is free (€0) — we never fall back to an invented rate. The zone's
+    // weekly windows travel with the session so the cost stops accruing when
+    // paid hours end, whatever the zone data says later.
     const t = await rateForSession(pos?.[0] ?? null, pos?.[1] ?? null, settings.permitZones)
     setActiveSession({
       plate: profile.plate,
@@ -107,6 +134,10 @@ export default function Home() {
       lat: pos?.[0] ?? null,
       lon: pos?.[1] ?? null,
       rate: t.rate,
+      windows: t.tariff === 'permit' ? null : t.windows,
+      // Ceiling for a day of this session, fixed at start: the zone's dagtarief
+      // or the driver's own limit, whichever is lower.
+      dayCap: effectiveDayCap(t.zoneDayCap, parseAmount(settings.maxDailyCost)),
       zoneDesc: t.zoneDesc,
       zoneId: t.zoneId,
       tariff: t.tariff,
@@ -189,6 +220,7 @@ export default function Home() {
           <span><i style={{ background: '#FBBF24' }} />€1–2,50</span>
           <span><i style={{ background: '#FB923C' }} />€2,50–4</span>
           <span><i style={{ background: '#E5484D' }} />€4+</span>
+          <span><i style={{ background: '#9AA3B8' }} />onbekend</span>
           <em>Tarieven indicatief · demo</em>
         </div>
       </div>
@@ -254,12 +286,8 @@ export default function Home() {
         ) : (
           <>
             {tariffHere && (
-              <p className={`start-hint${tariffHere.tariff === 'paid' ? '' : ' free'}`}>
-                {tariffHere.tariff === 'paid'
-                  ? `${formatEuro(tariffHere.rate)}/uur · ${tariffHere.zoneDesc}`
-                  : tariffHere.tariff === 'permit'
-                    ? `Vergunning · gratis in ${tariffHere.zoneDesc}`
-                    : 'Gratis parkeren hier · geen betaalde zone'}
+              <p className={`start-hint${FREE_STATES.has(tariffHere.tariff) ? ' free' : ''}`}>
+                {tariffHint(tariffHere)}
               </p>
             )}
             <button
