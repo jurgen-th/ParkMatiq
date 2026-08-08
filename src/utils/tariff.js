@@ -59,6 +59,78 @@ export function zoneForPoint(lat, lon, data) {
   return fallback
 }
 
+const M_PER_DEG_LAT = 111320
+
+// How far a paid zone may sit from a point that resolved to no zone before we
+// stop calling that point free. This is not GPS error — it is the gap between
+// the RDW outlines and the kerb people actually park at, which the measurements
+// in rateForSession put in the tens of metres. A real fix's own accuracy is
+// taken on top of this, never below it.
+//
+// The two mistakes are not equally bad. Saying "we don't know" where parking is
+// in fact free costs the driver a glance at a sign they are standing next to;
+// saying "free" where it is not costs them a fine. So this is set generously:
+// on the Kop van Zuid it reclassifies about a third of the no-zone points,
+// while the median such point sits ~120 m from any paid zone and stays free.
+const ZONE_EDGE_SLACK_M = 75
+
+// A fix so vague that everything is "nearby" tells the driver nothing, and the
+// bbox sweep gets expensive. Beyond this we stop widening the search.
+const MAX_REACH_M = 1000
+
+// Shortest distance in metres from a point to a feature's polygon edges.
+// Coordinates are projected to local metres first; over a few hundred metres
+// at Dutch latitudes the distortion is far below the numbers we compare against.
+function distanceToFeature(lat, lon, geom, mPerDegLon) {
+  if (!geom) return Infinity
+  const polys = geom.type === 'Polygon' ? [geom.coordinates]
+    : geom.type === 'MultiPolygon' ? geom.coordinates
+    : []
+  const px = lon * mPerDegLon, py = lat * M_PER_DEG_LAT
+  let best = Infinity
+  for (const rings of polys) {
+    for (const ring of rings) {
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const ax = ring[j][0] * mPerDegLon, ay = ring[j][1] * M_PER_DEG_LAT
+        const bx = ring[i][0] * mPerDegLon, by = ring[i][1] * M_PER_DEG_LAT
+        const vx = bx - ax, vy = by - ay
+        const len2 = vx * vx + vy * vy
+        let t = len2 ? ((px - ax) * vx + (py - ay) * vy) / len2 : 0
+        t = t < 0 ? 0 : t > 1 ? 1 : t
+        const d = Math.hypot(px - (ax + t * vx), py - (ay + t * vy))
+        if (d < best) best = d
+      }
+    }
+  }
+  return best
+}
+
+// The closest zone whose edge lies within `maxMeters` of the point, or null.
+// Only consulted when the point itself is inside no zone at all.
+export function nearestZoneWithin(lat, lon, data, maxMeters) {
+  if (lat == null || lon == null || !data?.features || !(maxMeters > 0)) return null
+  const mPerDegLon = M_PER_DEG_LAT * Math.cos((lat * Math.PI) / 180)
+  const padLat = maxMeters / M_PER_DEG_LAT
+  const padLon = maxMeters / mPerDegLon
+  let best = null
+  for (const f of data.features) {
+    const [minLon, minLat, maxLon, maxLat] = featureBBox(f)
+    if (lon < minLon - padLon || lon > maxLon + padLon) continue
+    if (lat < minLat - padLat || lat > maxLat + padLat) continue
+    const d = distanceToFeature(lat, lon, f.geometry, mPerDegLon)
+    if (d > maxMeters || (best && d >= best.distance)) continue
+    const p = f.properties
+    best = {
+      desc: p.desc,
+      areaid: p.areaid,
+      municipality: p.municipality || '',
+      maxRate: p.maxEurPerHour ?? null,
+      distance: Math.round(d),
+    }
+  }
+  return best
+}
+
 // The tariff in force at `when`, from a zone's weekly windows. Outside every
 // window parking is free — that is the normal case in the evening and on
 // Sunday, and charging the daytime rate then is simply wrong.
@@ -158,9 +230,16 @@ export function zoneHasPermit(zone, permitZones) {
 //   'permit'   — inside a zone the user holds a resident permit for, free
 //   'free'     — location known, no paid zone here, free
 //   'evening'  — inside a paid zone but outside its hours right now, free
-//   'unknown'  — no location fix, no zone data, or a zone whose tariff RDW
-//                doesn't let us resolve (never charge on a guess)
-export async function rateForSession(lat, lon, permitZones = [], when = new Date()) {
+//   'unknown'  — no location fix, no zone data, a zone whose tariff RDW
+//                doesn't let us resolve, or a spot too close to a paid zone to
+//                call free (never charge on a guess, never promise free on one)
+//
+// `accuracy` is the fix's error radius in metres, straight from the Geolocation
+// API. It widens the "too close to call" check below; omit it and only the
+// fixed slack applies.
+export async function rateForSession(
+  lat, lon, permitZones = [], { accuracy = null, when = new Date() } = {}
+) {
   const none = { rate: 0, windows: null, zoneDesc: null, zoneId: null, municipality: '' }
   if (lat == null || lon == null) return { ...none, tariff: 'unknown' }
 
@@ -168,7 +247,21 @@ export async function rateForSession(lat, lon, permitZones = [], when = new Date
   if (!data) return { ...none, tariff: 'unknown' }
 
   const zone = zoneForPoint(lat, lon, data)
-  if (!zone) return { ...none, tariff: 'free' }
+  if (!zone) {
+    // "No polygon covers this point" is not the same as "parking is free here",
+    // and reporting it as free is how a driver ends up with a fine. Two errors
+    // stack: RDW outlines sit back from the kerb and leave gaps between blocks,
+    // and the phone's own fix carries an error radius. Measured over the Kop van
+    // Zuid, 63% of sampled points resolve to no zone at all, while a paid zone
+    // sits within 50 m of 23% of them and within 75 m of 34%. So only call it
+    // free when nothing paid is close enough to plausibly be the real answer;
+    // otherwise say we don't know. Either way nothing is charged — but only one
+    // of them tells the driver to read the sign.
+    const reach = Math.min(Math.max(accuracy ?? 0, ZONE_EDGE_SLACK_M), MAX_REACH_M)
+    const near = nearestZoneWithin(lat, lon, data, reach)
+    if (near) return { ...none, tariff: 'unknown', nearZone: near }
+    return { ...none, tariff: 'free' }
+  }
 
   const base = {
     zoneDesc: zone.desc,

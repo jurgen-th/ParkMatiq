@@ -36,17 +36,32 @@ function tariffHint(t) {
     case 'free':
       return 'Gratis parkeren hier · geen betaalde zone'
     default:
+      // Close enough to a paid zone that "gratis" would be a guess. Name the
+      // zone and its rate: the driver is standing next to the sign that settles
+      // it, and that is a better answer than anything we can infer from a fix.
+      if (t.nearZone) {
+        const rate = t.nearZone.maxRate
+          ? ` (tot ${formatEuro(t.nearZone.maxRate)}/uur)`
+          : ''
+        return `${t.nearZone.desc}${rate} ligt ${t.nearZone.distance} m verderop · ` +
+          'controleer het bord — we rekenen niets'
+      }
       return t.zoneDesc
         ? `Betaalde zone · tarief onbekend, we rekenen niets`
         : 'Tarief onbekend · we rekenen niets'
   }
 }
 
+// Resolves to { pos, accuracy } — the error radius travels with the fix because
+// the tariff lookup needs it to decide whether "no zone here" is trustworthy.
 function getCurrentPosition() {
   return new Promise(resolve => {
     if (!navigator.geolocation) return resolve(null)
     navigator.geolocation.getCurrentPosition(
-      ({ coords }) => resolve([coords.latitude, coords.longitude]),
+      ({ coords }) => resolve({
+        pos: [coords.latitude, coords.longitude],
+        accuracy: coords.accuracy ?? null,
+      }),
       () => resolve(null),
       GEO_OPTS
     )
@@ -75,6 +90,7 @@ export default function Home() {
   const navigate = useNavigate()
   const [profile,  setProfile]  = useState(null)
   const [location, setLocation] = useState(null)
+  const [accuracy, setAccuracy] = useState(null)
   const [active,   setActive]   = useState(null)
   const [locEnabled, setLocEnabled] = useState(true)
   const [starting, setStarting] = useState(false)
@@ -93,10 +109,10 @@ export default function Home() {
   useEffect(() => {
     if (!location) { setTariffHere(null); return }
     let alive = true
-    rateForSession(location[0], location[1], getSettings().permitZones)
+    rateForSession(location[0], location[1], getSettings().permitZones, { accuracy })
       .then(t => { if (alive) setTariffHere(t) })
     return () => { alive = false }
-  }, [location])
+  }, [location, accuracy])
 
   useEffect(() => {
     const p = getProfile()
@@ -109,7 +125,10 @@ export default function Home() {
 
     if (getSettings().location) {
       navigator.geolocation?.getCurrentPosition(
-        ({ coords }) => setLocation([coords.latitude, coords.longitude]),
+        ({ coords }) => {
+          setLocation([coords.latitude, coords.longitude])
+          setAccuracy(coords.accuracy ?? null)
+        },
         () => {},
         GEO_OPTS
       )
@@ -122,12 +141,25 @@ export default function Home() {
     // Capture a fix at tap time so the session map works even if the prefetch
     // hadn't resolved yet. Respects the location toggle in Settings.
     const settings = getSettings()
-    const pos = settings.location ? (location ?? await getCurrentPosition()) : null
-    // Resolve the tariff from the parked location. Outside every paid zone the
-    // session is free (€0) — we never fall back to an invented rate. The zone's
-    // weekly windows travel with the session so the cost stops accruing when
-    // paid hours end, whatever the zone data says later.
-    const t = await rateForSession(pos?.[0] ?? null, pos?.[1] ?? null, settings.permitZones)
+    let pos = null, acc = null
+    if (settings.location) {
+      if (location) {
+        pos = location
+        acc = accuracy
+      } else {
+        const fix = await getCurrentPosition()
+        if (fix) { pos = fix.pos; acc = fix.accuracy }
+      }
+    }
+    // Resolve the tariff from the parked location, passing the fix's error
+    // radius: clear of every paid zone the session is free (€0), but close to
+    // one the answer is 'unknown' rather than a promise of free parking. We
+    // never fall back to an invented rate either way. The zone's weekly windows
+    // travel with the session so the cost stops accruing when paid hours end,
+    // whatever the zone data says later.
+    const t = await rateForSession(
+      pos?.[0] ?? null, pos?.[1] ?? null, settings.permitZones, { accuracy: acc }
+    )
     setActiveSession({
       plate: profile.plate,
       startTime: new Date().toISOString(),
@@ -173,8 +205,9 @@ export default function Home() {
     if (location) recenterRef.current?.(location)
     const fresh = await getCurrentPosition()
     if (fresh) {
-      setLocation(fresh)
-      recenterRef.current?.(fresh)
+      setLocation(fresh.pos)
+      setAccuracy(fresh.accuracy)
+      recenterRef.current?.(fresh.pos)
     }
   }
 
