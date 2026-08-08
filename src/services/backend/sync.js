@@ -78,8 +78,12 @@ export async function pushSession(session) {
 }
 
 // After registration: seed the server with whatever this device already has
-// (covers guest-mode history that predates the account).
+// (covers guest-mode history that predates the account). Callers are
+// responsible for having cleared anything the account declined to adopt —
+// see hasUnclaimedParkingData() at the registration screen.
 export async function pushAll() {
+  const id = await userId()
+  if (id) local.setOwner(id)
   await pushProfile(local.getProfile())
   await pushSettings(local.getSettings())
   await pushActive(local.getActiveSession())
@@ -89,9 +93,23 @@ export async function pushAll() {
 // After login (and on app start while signed in): the profile comes from the
 // server, sessions are merged both ways (see below). Writes via utils/storage
 // directly so nothing echoes back up.
-export async function pullAll() {
+//
+// `adopt` decides what happens to local data this account has never claimed.
+// Merging it blindly is how a guest's plate and parking locations end up in the
+// next account that signs in on a shared phone, so the login screen asks first
+// and passes the answer through. A background refresh for an already-signed-in
+// session passes adopt: true — that data was produced by this very session.
+export async function pullAll({ adopt = false } = {}) {
   const id = await userId()
   if (!id) return false
+
+  // Keep local data only when this account already owns it, or when the user
+  // has just said the unclaimed data is theirs. Everything else goes: it
+  // belongs to whoever used the device before, and it must not reach either
+  // this device's view of the account or the account's rows on the server.
+  const owner = local.getOwner()
+  if (!(owner === id || (!owner && adopt))) local.clearAllData()
+  local.setOwner(id)
 
   const [{ data: prof, error: pErr }, { data: rows, error: sErr }] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', id).maybeSingle(),

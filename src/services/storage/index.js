@@ -12,8 +12,14 @@ export const getProfile = local.getProfile
 export const getSessions = local.getSessions
 export const getActiveSession = local.getActiveSession
 export const getSettings = local.getSettings
-// Local wipe only (used at logout); account/server erasure lives in sync.js.
+export const getOwner = local.getOwner
+export const hasUnclaimedData = local.hasUnclaimedData
+export const hasUnclaimedParkingData = local.hasUnclaimedParkingData
+// Local wipe only (used at logout, and to drop data the signing-in account has
+// declined to adopt); account/server erasure lives in sync.js. Deliberately not
+// mirrored upward — the point is to discard rows, not to delete them serverside.
 export const clearAllData = local.clearAllData
+export const clearParkingData = local.clearParkingData
 
 export function saveProfile(profile) {
   local.saveProfile(profile)

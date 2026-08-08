@@ -30,15 +30,35 @@ function style(feature) {
   }
 }
 
+// Built as DOM rather than as an HTML string. `desc` is RDW's areadesc, carried
+// through scripts/build-zones.py unescaped, and the string form of bindPopup
+// assigns to innerHTML — so an HTML string here is an injection sink pointed at
+// a dataset we don't control and re-pull on every rebuild. Zone descriptions
+// already contain `<` and `&` ("Binnenstad (<1 uur)", "Kiss&Ride"); textContent
+// keeps a future one carrying markup from executing in our origin.
 function onEachFeature(feature, layer) {
   const { desc, maxEurPerHour } = feature.properties
   const price = maxEurPerHour
     ? `tot €${maxEurPerHour.toFixed(2).replace('.', ',')}/uur`
     : 'Tarief onbekend'
-  layer.bindPopup(
-    `<strong>${desc}</strong><br>${price}` +
-    `<br><span style="color:#8B92A8;font-size:11px">Tarief indicatief · demo</span>`
+
+  const title = document.createElement('strong')
+  title.textContent = desc
+
+  const note = document.createElement('span')
+  note.style.color = '#8B92A8'
+  note.style.fontSize = '11px'
+  note.textContent = 'Tarief indicatief · demo'
+
+  const content = document.createElement('div')
+  content.append(
+    title,
+    document.createElement('br'),
+    price,
+    document.createElement('br'),
+    note,
   )
+  layer.bindPopup(content)
 }
 
 // Renders only the zones intersecting the current viewport, above a zoom

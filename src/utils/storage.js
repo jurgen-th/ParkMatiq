@@ -2,6 +2,9 @@ const PROFILE_KEY = 'pw_profile'
 const SESSIONS_KEY = 'pw_sessions'
 const ACTIVE_KEY = 'pw_active'
 const SETTINGS_KEY = 'pw_settings'
+// Which account the data in this browser belongs to. Absent means nobody has
+// claimed it: guest mode, or a build from before this stamp existed.
+const OWNER_KEY = 'pw_owner'
 
 const DEFAULT_SETTINGS = {
   location: true,
@@ -79,9 +82,41 @@ export function saveSettings(patch) {
   return next
 }
 
+export function getOwner() {
+  return read(OWNER_KEY, null)
+}
+
+export function setOwner(id) {
+  if (id) localStorage.setItem(OWNER_KEY, JSON.stringify(id))
+  else localStorage.removeItem(OWNER_KEY)
+}
+
+// Data that no account has claimed. On a shared phone it may well be the
+// previous user's, so the sign-in flow asks before folding it into an account
+// instead of assuming the person signing in is the one who parked.
+export function hasUnclaimedData() {
+  return !getOwner() &&
+    (!!getProfile() || getSessions().length > 0 || !!getActiveSession())
+}
+
+export function hasUnclaimedParkingData() {
+  return !getOwner() && (getSessions().length > 0 || !!getActiveSession())
+}
+
+// Everything that says where a car stood and when: finished sessions plus one
+// that is still running. Both carry a plate and coordinates, so both have to go
+// when the account signing in says this data is not theirs. Profile and device
+// preferences are left alone — the registration screen has just collected those
+// from the person actually sitting there.
+export function clearParkingData() {
+  localStorage.removeItem(SESSIONS_KEY)
+  localStorage.removeItem(ACTIVE_KEY)
+}
+
 export function clearAllData() {
   localStorage.removeItem(PROFILE_KEY)
   localStorage.removeItem(SESSIONS_KEY)
   localStorage.removeItem(ACTIVE_KEY)
   localStorage.removeItem(SETTINGS_KEY)
+  localStorage.removeItem(OWNER_KEY)
 }

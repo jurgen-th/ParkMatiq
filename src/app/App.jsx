@@ -46,8 +46,13 @@ export default function App() {
 
   // Signed in from a previous visit? Refresh localStorage from the server in
   // the background (local-first: screens render local data immediately).
+  // adopt: this is a refresh for a session that is already signed in, so any
+  // local data was produced by this account — there is no second identity in
+  // play the way there is at the login screen. It also carries devices that
+  // were signed in before the owner stamp existed across the upgrade without
+  // discarding sessions that never reached the server.
   useEffect(() => {
-    if (backendEnabled) pullAll()
+    if (backendEnabled) pullAll({ adopt: true })
   }, [])
   return (
     <Providers>

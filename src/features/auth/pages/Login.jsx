@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { getProfile } from '../../../services/storage'
+import { getProfile, hasUnclaimedData } from '../../../services/storage'
 import { supabase, backendEnabled } from '../../../services/backend/supabase'
 import { pullAll, pushAll } from '../../../services/backend/sync'
 import { IconMail, IconLock, IconEye, IconEyeOff } from '../../../components/common/Icons'
@@ -44,7 +44,16 @@ export default function Login() {
         setError(authErrorNL(err))
         return
       }
-      const hasServerProfile = await pullAll()
+      // Gegevens op dit apparaat die nog nergens bij horen (gastmodus) mogen
+      // niet stilzwijgend in dit account belanden: op een gedeelde telefoon is
+      // dat andermans kenteken en locatiegeschiedenis. Alleen de persoon die nu
+      // inlogt kan zeggen of het van hen is.
+      const adopt = hasUnclaimedData() && window.confirm(
+        'Op dit apparaat staat parkeergeschiedenis die nog niet bij een account hoort.\n\n' +
+        'Toevoegen aan dit account? Kies Annuleren als dit apparaat van iemand ' +
+        'anders is geweest — die geschiedenis wordt dan van dit apparaat gewist.'
+      )
+      const hasServerProfile = await pullAll({ adopt })
       if (!hasServerProfile) {
         if (getProfile()) {
           // Server nog leeg maar dit device heeft data (bv. eerste login na

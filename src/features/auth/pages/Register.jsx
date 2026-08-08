@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom'
-import { saveProfile } from '../../../services/storage'
+import { saveProfile, hasUnclaimedParkingData, clearParkingData } from '../../../services/storage'
 import { supabase, backendEnabled } from '../../../services/backend/supabase'
 import { pushAll } from '../../../services/backend/sync'
 import { normalizePlate, isValidPlate } from '../../../utils/plate'
@@ -41,6 +41,19 @@ export default function Register() {
     }
   }, [])
 
+  // Parkeergegevens die al op dit apparaat staan kunnen van vóór dit account
+  // zijn (gastmodus op een geleende telefoon). pushAll() zou ze naar de server
+  // van dit nieuwe account sturen, dus eerst vragen — en bij nee weggooien.
+  function claimLocalParkingData() {
+    if (!hasUnclaimedParkingData()) return
+    const mine = window.confirm(
+      'Op dit apparaat staat parkeergeschiedenis van vóór dit account.\n\n' +
+      'Meenemen naar je account? Kies Annuleren als die niet van jou is — ' +
+      'de geschiedenis wordt dan van dit apparaat gewist.'
+    )
+    if (!mine) clearParkingData()
+  }
+
   async function handleSubmit() {
     if (!name.trim()) { setError('Vul je naam in'); return }
     if (!guest && !completing) {
@@ -58,6 +71,7 @@ export default function Register() {
 
     if (completing) {
       setBusy(true)
+      claimLocalParkingData()
       saveProfile(profile)
       await pushAll()
       setBusy(false)
@@ -79,6 +93,7 @@ export default function Register() {
       saveProfile(profile)
       if (data.session) {
         // Direct ingelogd (e-mailbevestiging uit): seed de server met dit device.
+        claimLocalParkingData()
         await pushAll()
         setBusy(false)
         navigate('/', { replace: true })
