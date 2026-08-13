@@ -75,7 +75,11 @@ export function generateReceipt(session) {
     ['Start',      startStr],
     ['Einde',      endStr],
     ['Duur',       durationStr],
-    ['Zone',       session.zoneDesc || 'Geen betaalde zone'],
+    // A zone the driver named themselves is marked as such: this receipt may be
+    // used to claim money back or to contest a fine, and it should not present
+    // their correction as something we measured.
+    ['Zone',       (session.zoneDesc || 'Geen betaalde zone') +
+                   (session.zonePicked ? ' (zelf gekozen)' : '')],
     ['Tarief',     tariffBasis(session)],
     ['Locatie',    location],
     ['Kenteken',   session.plate],

@@ -33,6 +33,21 @@ function pointInFeature(lat, lon, geom) {
   return false
 }
 
+// The shape every consumer of a zone works with, whether it was found under the
+// car or picked from a list. Kept in one place so a picked zone prices exactly
+// the same way a detected one does.
+function zoneFromFeature(f, data) {
+  const p = f.properties
+  return {
+    windows: p.sched ? data.schedules?.[p.sched] ?? null : null,
+    maxRate: p.maxEurPerHour ?? null,
+    dayCap: p.dayCap ?? null,
+    desc: p.desc,
+    areaid: p.areaid,
+    municipality: p.municipality || '',
+  }
+}
+
 // Returns the zone containing the point, or null. A point can fall in both a
 // priced zone and one whose tariff we couldn't resolve (they overlap where a
 // municipality files the same street twice); the priced one wins, because it
@@ -44,15 +59,7 @@ export function zoneForPoint(lat, lon, data) {
     const [minLon, minLat, maxLon, maxLat] = featureBBox(f)
     if (lon < minLon || lon > maxLon || lat < minLat || lat > maxLat) continue
     if (!pointInFeature(lat, lon, f.geometry)) continue
-    const p = f.properties
-    const zone = {
-      windows: p.sched ? data.schedules?.[p.sched] ?? null : null,
-      maxRate: p.maxEurPerHour ?? null,
-      dayCap: p.dayCap ?? null,
-      desc: p.desc,
-      areaid: p.areaid,
-      municipality: p.municipality || '',
-    }
+    const zone = zoneFromFeature(f, data)
     if (zone.windows) return zone
     if (!fallback) fallback = zone
   }
@@ -105,30 +112,49 @@ function distanceToFeature(lat, lon, geom, mPerDegLon) {
   return best
 }
 
-// The closest zone whose edge lies within `maxMeters` of the point, or null.
-// Only consulted when the point itself is inside no zone at all.
-export function nearestZoneWithin(lat, lon, data, maxMeters) {
-  if (lat == null || lon == null || !data?.features || !(maxMeters > 0)) return null
+// Zones whose edge lies within `maxMeters` of the point, closest first, each
+// carrying its distance in metres. A municipality files one area as several
+// polygons, so the same zone can match repeatedly — collapsed to one entry.
+export function zonesWithin(lat, lon, data, maxMeters, limit = 6) {
+  if (lat == null || lon == null || !data?.features || !(maxMeters > 0)) return []
   const mPerDegLon = M_PER_DEG_LAT * Math.cos((lat * Math.PI) / 180)
   const padLat = maxMeters / M_PER_DEG_LAT
   const padLon = maxMeters / mPerDegLon
-  let best = null
+  const found = []
   for (const f of data.features) {
     const [minLon, minLat, maxLon, maxLat] = featureBBox(f)
     if (lon < minLon - padLon || lon > maxLon + padLon) continue
     if (lat < minLat - padLat || lat > maxLat + padLat) continue
     const d = distanceToFeature(lat, lon, f.geometry, mPerDegLon)
-    if (d > maxMeters || (best && d >= best.distance)) continue
-    const p = f.properties
-    best = {
-      desc: p.desc,
-      areaid: p.areaid,
-      municipality: p.municipality || '',
-      maxRate: p.maxEurPerHour ?? null,
-      distance: Math.round(d),
-    }
+    if (d > maxMeters) continue
+    found.push({ ...zoneFromFeature(f, data), distance: Math.round(d) })
   }
-  return best
+  found.sort((a, b) => a.distance - b.distance)
+  const seen = new Set()
+  const out = []
+  for (const z of found) {
+    const key = zoneKey(z)
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(z)
+    if (out.length >= limit) break
+  }
+  return out
+}
+
+// Identity of a zone across the dataset: RDW reuses area ids between
+// municipalities, so neither half is unique on its own.
+export function zoneKey(zone) {
+  return `${zone?.municipality || ''}|${zone?.areaid}`
+}
+
+// Nearby zones for the picker, ordered closest first. Wider than the slack that
+// decides 'free' vs 'unknown': a driver correcting us may be standing further
+// from the outline than we would ever guess at on our own.
+export async function nearbyZones(lat, lon, maxMeters = 150, limit = 6) {
+  const data = await loadZones()
+  if (!data) return []
+  return zonesWithin(lat, lon, data, maxMeters, limit)
 }
 
 // The tariff in force at `when`, from a zone's weekly windows. Outside every
@@ -258,11 +284,18 @@ export async function rateForSession(
     // otherwise say we don't know. Either way nothing is charged — but only one
     // of them tells the driver to read the sign.
     const reach = Math.min(Math.max(accuracy ?? 0, ZONE_EDGE_SLACK_M), MAX_REACH_M)
-    const near = nearestZoneWithin(lat, lon, data, reach)
+    const [near] = zonesWithin(lat, lon, data, reach, 1)
     if (near) return { ...none, tariff: 'unknown', nearZone: near }
     return { ...none, tariff: 'free' }
   }
 
+  return rateForZone(zone, permitZones, { when })
+}
+
+// Price a zone we already have in hand — detected under the car, or named by
+// the driver in the picker. Both go through here, so a corrected zone bills on
+// exactly the same rules as a detected one rather than a parallel set.
+export function rateForZone(zone, permitZones = [], { when = new Date() } = {}) {
   const base = {
     zoneDesc: zone.desc,
     zoneId: zone.areaid,

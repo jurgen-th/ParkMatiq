@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
 import { getProfile, getActiveSession, setActiveSession, getSettings, saveSettings } from '../../../services/storage'
-import { rateForSession, formatEuro, formatWhen, effectiveDayCap, parseAmount } from '../../../services/tariffs'
+import { rateForSession, rateForZone, nearbyZones, formatEuro, formatWhen, effectiveDayCap, parseAmount } from '../../../services/tariffs'
 import { chargePointsAvailable } from '../../../services/charging'
 import { geocode } from '../../../services/geolocation'
 import { requestPermission, notify } from '../../../services/notifications'
@@ -10,12 +10,18 @@ import { TILE_URL, TILE_ATTRIBUTION, userIcon } from '../../../utils/map'
 import BottomNav from '../../../components/layout/BottomNav'
 import PlateBadge from '../../../components/common/PlateBadge'
 import ParkingZones from '../../parking-zones/components/ParkingZones'
+import ZonePicker from '../../parking-zones/components/ZonePicker'
 import ChargePoints from '../../charging/components/ChargePoints'
 import NavigateSheet from '../../../components/common/NavigateSheet'
 import { IconPlay, IconLocate, IconSearch, IconBolt, IconNavigate } from '../../../components/common/Icons'
 
 const DEFAULT_CENTER = [51.9225, 4.47917] // Rotterdam
 const GEO_OPTS = { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
+
+// How far to look for zones to offer in the picker. Wider than the slack that
+// decides free vs unknown: someone correcting us knows where they parked, and
+// the outline they belong to may sit further off than we would ever infer.
+const PICKER_RADIUS_M = 150
 
 // States in which starting a session costs nothing (shown in green).
 const FREE_STATES = new Set(['permit', 'free', 'evening'])
@@ -100,6 +106,11 @@ export default function Home() {
   const [searching, setSearching] = useState(false)
   const [searchErr, setSearchErr] = useState('')
   const [tariffHere, setTariffHere] = useState(null)
+  // Zones near enough to be the real answer, and the one the driver picked when
+  // our own verdict was wrong. A pick outranks the fix until the car moves.
+  const [zoneOptions, setZoneOptions] = useState([])
+  const [pickedZone, setPickedZone] = useState(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const [showCharging, setShowCharging] = useState(false)
   const [navDest, setNavDest] = useState(null)
   const recenterRef = useRef(null)
@@ -107,10 +118,24 @@ export default function Home() {
   // Show what parking costs here *before* the user starts, so a free spot is
   // never mistaken for a paid one.
   useEffect(() => {
-    if (!location) { setTariffHere(null); return }
+    if (!location) {
+      setTariffHere(null)
+      setZoneOptions([])
+      setPickedZone(null)
+      return
+    }
     let alive = true
-    rateForSession(location[0], location[1], getSettings().permitZones, { accuracy })
-      .then(t => { if (alive) setTariffHere(t) })
+    // A new fix invalidates an earlier correction — it was made about a spot
+    // the car is no longer at.
+    setPickedZone(null)
+    Promise.all([
+      rateForSession(location[0], location[1], getSettings().permitZones, { accuracy }),
+      nearbyZones(location[0], location[1], PICKER_RADIUS_M),
+    ]).then(([t, opts]) => {
+      if (!alive) return
+      setTariffHere(t)
+      setZoneOptions(opts)
+    })
     return () => { alive = false }
   }, [location, accuracy])
 
@@ -151,15 +176,18 @@ export default function Home() {
         if (fix) { pos = fix.pos; acc = fix.accuracy }
       }
     }
-    // Resolve the tariff from the parked location, passing the fix's error
-    // radius: clear of every paid zone the session is free (€0), but close to
-    // one the answer is 'unknown' rather than a promise of free parking. We
+    // A zone the driver picked wins over the fix — they can read the sign and
+    // we cannot. Otherwise resolve from the parked location, passing the fix's
+    // error radius: clear of every paid zone the session is free (€0), but close
+    // to one the answer is 'unknown' rather than a promise of free parking. We
     // never fall back to an invented rate either way. The zone's weekly windows
     // travel with the session so the cost stops accruing when paid hours end,
     // whatever the zone data says later.
-    const t = await rateForSession(
-      pos?.[0] ?? null, pos?.[1] ?? null, settings.permitZones, { accuracy: acc }
-    )
+    const t = pickedZone
+      ? rateForZone(pickedZone, settings.permitZones)
+      : await rateForSession(
+          pos?.[0] ?? null, pos?.[1] ?? null, settings.permitZones, { accuracy: acc }
+        )
     setActiveSession({
       plate: profile.plate,
       startTime: new Date().toISOString(),
@@ -173,6 +201,10 @@ export default function Home() {
       zoneDesc: t.zoneDesc,
       zoneId: t.zoneId,
       tariff: t.tariff,
+      // Where the zone came from. A receipt used to claim money back or to
+      // contest a fine should not present a zone the driver chose as something
+      // we measured.
+      zonePicked: !!pickedZone,
     })
     navigate('/session')
     notify('Parkeren gestart', `Kenteken ${profile.plate}`)
@@ -193,6 +225,14 @@ export default function Home() {
     } else {
       setSearchErr('Geen locatie gevonden')
     }
+  }
+
+  // The driver overriding our verdict. Price it immediately so the sheet shows
+  // what the correction actually costs before they commit to it.
+  function handlePickZone(zone) {
+    setPickedZone(zone)
+    setTariffHere(rateForZone(zone, getSettings().permitZones))
+    setPickerOpen(false)
   }
 
   function toggleCharging() {
@@ -320,8 +360,14 @@ export default function Home() {
           <>
             {tariffHere && (
               <p className={`start-hint${FREE_STATES.has(tariffHere.tariff) ? ' free' : ''}`}>
+                {pickedZone && <span className="zone-picked-tag">Zelf gekozen</span>}
                 {tariffHint(tariffHere)}
               </p>
+            )}
+            {zoneOptions.length > 0 && (
+              <button className="zone-pick-link" onClick={() => setPickerOpen(true)}>
+                {pickedZone ? 'Andere zone kiezen' : 'Klopt de zone niet? Kies zelf'}
+              </button>
             )}
             <button
               className="btn btn-yellow"
@@ -340,6 +386,14 @@ export default function Home() {
       </div>
 
       <NavigateSheet destination={navDest} onClose={() => setNavDest(null)} />
+
+      <ZonePicker
+        open={pickerOpen}
+        zones={zoneOptions}
+        selected={pickedZone}
+        onPick={handlePickZone}
+        onClose={() => setPickerOpen(false)}
+      />
     </div>
   )
 }
