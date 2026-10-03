@@ -44,6 +44,8 @@ export default defineConfig({
         // woff2 is in here because the fonts are ours now: leaving them out
         // would make an offline launch fall back to system fonts.
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        // Opens the app when a notification is tapped (public/notification-click.js).
+        importScripts: ['notification-click.js'],
         runtimeCaching: [
           {
             // The zone data decides what a session costs, so it must survive a

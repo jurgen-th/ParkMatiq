@@ -24,7 +24,6 @@ export default function Onboarding() {
   const [locationOn, setLocationOn] = useState(getSettings().location)
   const [notifOn, setNotifOn]       = useState(false)
   const [payOn, setPayOn]           = useState(false)
-  const [btOn, setBtOn]             = useState(false)
   const [permitOn, setPermitOn]     = useState(false)
   const [budgetOn, setBudgetOn]     = useState(false)
   const [budget, setBudget]         = useState('')
@@ -51,7 +50,6 @@ export default function Onboarding() {
       onboardingDone: true,
       location: locationOn,
       paymentConnected: payOn,
-      bluetoothConnected: btOn,
       // The zone(s) the permit covers are picked in Settings — a permit is tied
       // to a parking zone, which we can only match against the RDW zone data.
       permitZones: [],
@@ -105,7 +103,8 @@ export default function Onboarding() {
             <h1 className="ob-title">Verbind je essentials</h1>
             <p className="ob-text">Tik om te koppelen. Een betaalmethode laat ParkMatiq de meter direct betalen.</p>
             <ConnectRow color="#1a1f36" label="Betaalmethode" sub="Kaart · ●●●● 4291" icon={CardIcon} done={payOn} onTap={() => setPayOn(true)} />
-            <ConnectRow color="#0a7d33" label="Bluetooth" sub="Voor detectie van wegrijden" icon={BtIcon} done={btOn} onTap={() => setBtOn(true)} />
+            {/* A web app can't see the car's Bluetooth; this needs the native app. */}
+            <ConnectRow color="#0a7d33" label="Bluetooth" sub="Detectie van wegrijden · komt met de app-versie" icon={BtIcon} soon />
             <p className="ob-note">Demo — de echte betaal- en Bluetooth-koppeling komt bij de livegang.</p>
           </>
         )}
@@ -207,15 +206,15 @@ function ObRow({ icon, title, sub, on, onToggle }) {
   )
 }
 
-function ConnectRow({ color, label, sub, icon, done, onTap }) {
+function ConnectRow({ color, label, sub, icon, done, onTap, soon }) {
   return (
-    <button className={`connect-row${done ? ' done' : ''}`} onClick={onTap} type="button">
+    <button className={`connect-row${done ? ' done' : ''}`} onClick={onTap} type="button" disabled={soon}>
       <span className="connect-logo" style={{ background: color }}>{icon}</span>
       <div className="connect-txt">
         <span className="toggle-label">{label}</span>
         <span className="toggle-desc">{sub}</span>
       </div>
-      <span className="connect-status">{done ? '✓ Verbonden' : 'Verbind'}</span>
+      <span className="connect-status">{soon ? 'Binnenkort' : done ? '✓ Verbonden' : 'Verbind'}</span>
     </button>
   )
 }

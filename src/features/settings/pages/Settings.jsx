@@ -436,6 +436,13 @@ export default function Settings() {
                 </button>
               ))}
             </div>
+            <span className="field-hint">
+              {{
+                balanced: 'Na een minuut rijden vragen we of je de sessie wilt stoppen.',
+                eager:    'Zodra je wegrijdt vragen we of je de sessie wilt stoppen.',
+                manual:   'We vragen het nooit; je stopt de sessie zelf.',
+              }[endPref]}
+            </span>
           </div>
         </div>
 

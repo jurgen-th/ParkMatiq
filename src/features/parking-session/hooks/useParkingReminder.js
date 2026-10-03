@@ -32,7 +32,7 @@ export default function useParkingReminder() {
       if (notifiedRef.current.cappedDay !== today && dayCapReached(session)) {
         notifiedRef.current.cappedDay = today
         notify('Dagmaximum bereikt',
-          `De kosten blijven vandaag op ${formatEuro(cost)} staan.`)
+          `De kosten blijven vandaag op ${formatEuro(cost)} staan.`, '#/session')
         return
       }
 
@@ -40,7 +40,7 @@ export default function useParkingReminder() {
       if (elapsed >= FIRST_MS && due > notifiedRef.current.hours) {
         notifiedRef.current.hours = due
         notify('Je staat nog geparkeerd',
-          `${formatDuration(Math.floor(elapsed / 1000))} · ${formatEuro(cost)} tot nu toe.`)
+          `${formatDuration(Math.floor(elapsed / 1000))} · ${formatEuro(cost)} tot nu toe.`, '#/session')
       }
     }
 

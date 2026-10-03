@@ -1898,6 +1898,7 @@ html[data-theme='dark'] .loop-chip.c3 { color: var(--yellow); }
   transition: border-color 0.2s, background 0.2s;
 }
 .connect-row.done { border-color: var(--green); background: rgba(45, 158, 90, 0.06); }
+.connect-row:disabled { opacity: 0.6; cursor: default; }
 html[data-theme='dark'] .connect-row.done { background: rgba(109, 255, 154, 0.07); }
 
 .connect-logo {

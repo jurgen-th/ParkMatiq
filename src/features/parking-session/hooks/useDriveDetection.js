@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { getSettings, getActiveSession } from '../../../services/storage'
 import { requestPermission, notify } from '../../../services/notifications'
 import { rateForSession, nearbyZones } from '../../../services/tariffs'
-import { initialDetectorState, step } from '../../../utils/driveDetect'
+import { initialDetectorState, step, stopConfirmMs, THRESHOLDS } from '../../../utils/driveDetect'
 
 // Listeners for the in-app zone prompt (AutoStartPrompt). A notification can't
 // carry a list of zones to choose from, so the choice is made in the app.
@@ -22,9 +22,9 @@ async function promptStart(lat, lon, accuracy) {
   const zones = t.nearZone ? await nearbyZones(lat, lon) : []
   if (zones.length) {
     zonePromptListeners.forEach(fn => fn({ pos: [lat, lon], zones }))
-    notify('Sessie starten?', 'Je locatie valt net buiten een parkeerzone — kies je zone in ParkMatiq.')
+    notify('Sessie starten?', 'Je locatie valt net buiten een parkeerzone — kies je zone in ParkMatiq.', '#/')
   } else {
-    notify('Sessie starten?', 'Je lijkt geparkeerd — open ParkMatiq om je parkeersessie te starten.')
+    notify('Sessie starten?', 'Je lijkt geparkeerd — tik om je parkeersessie te starten.', '#/')
   }
 }
 
@@ -43,19 +43,22 @@ export default function useDriveDetection() {
 
     const id = navigator.geolocation.watchPosition(
       pos => {
+        // Read per sample so a change in Settings applies without a restart.
+        const T = { ...THRESHOLDS, stopConfirmMs: stopConfirmMs(getSettings().endPreference) }
         const { state, prompt } = step(stateRef.current, {
           speed: pos.coords.speed,
           lat: pos.coords.latitude,
           lon: pos.coords.longitude,
+          accuracy: pos.coords.accuracy ?? null,
           time: Date.now(),
           active: !!getActiveSession(),
-        })
+        }, T)
         stateRef.current = state
 
         if (prompt === 'start') {
           promptStart(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy ?? null)
         } else if (prompt === 'stop') {
-          notify('Sessie stoppen?', 'Je rijdt weer — open ParkMatiq om je parkeersessie te stoppen.')
+          notify('Sessie stoppen?', 'Je rijdt weer — tik om je parkeersessie te stoppen.', '#/session')
         }
       },
       () => {},
