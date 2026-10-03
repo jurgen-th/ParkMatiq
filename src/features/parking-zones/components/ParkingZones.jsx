@@ -36,7 +36,10 @@ function style(feature) {
 // a dataset we don't control and re-pull on every rebuild. Zone descriptions
 // already contain `<` and `&` ("Binnenstad (<1 uur)", "Kiss&Ride"); textContent
 // keeps a future one carrying markup from executing in our origin.
-function onEachFeature(feature, layer) {
+//
+// The Navigeer destination is the spot the user tapped: that is inside the zone
+// by definition, which a polygon's centre (outside an L-shaped zone) is not.
+function bindZonePopup(feature, layer, onNavigate) {
   const { desc, maxEurPerHour } = feature.properties
   const price = maxEurPerHour
     ? `tot €${maxEurPerHour.toFixed(2).replace('.', ',')}/uur`
@@ -55,16 +58,28 @@ function onEachFeature(feature, layer) {
     title,
     document.createElement('br'),
     price,
-    document.createElement('br'),
-    note,
   )
+  if (onNavigate) {
+    const nav = document.createElement('button')
+    nav.className = 'cp-nav-btn'
+    nav.textContent = 'Navigeer'
+    nav.onclick = () => {
+      const at = layer.getPopup().getLatLng()
+      layer.closePopup()
+      onNavigate({ lat: at.lat, lon: at.lng, label: desc })
+    }
+    content.append(nav)
+  } else {
+    content.append(document.createElement('br'))
+  }
+  content.append(note)
   layer.bindPopup(content)
 }
 
 // Renders only the zones intersecting the current viewport, above a zoom
 // threshold. With ~2.6k nationwide zones, drawing them all at once would choke
 // Leaflet on a phone; a bbox filter keeps only the local handful on screen.
-export default function ParkingZones() {
+export default function ParkingZones({ onNavigate }) {
   const map = useMap()
   const [all, setAll] = useState(null)
   const [view, setView] = useState(null) // { fc, key }
@@ -96,5 +111,12 @@ export default function ParkingZones() {
   useMapEvents({ load: recompute, resize: recompute, moveend: recompute, zoomend: recompute })
 
   if (!view || !view.fc.features.length) return null
-  return <GeoJSON key={view.key} data={view.fc} style={style} onEachFeature={onEachFeature} />
+  return (
+    <GeoJSON
+      key={view.key}
+      data={view.fc}
+      style={style}
+      onEachFeature={(f, layer) => bindZonePopup(f, layer, onNavigate)}
+    />
+  )
 }

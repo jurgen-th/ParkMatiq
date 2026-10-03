@@ -6,6 +6,7 @@ import { sessionCost, savingsVsMeter, formatEuro, parseAmount } from '../../../s
 import BottomNav from '../../../components/layout/BottomNav'
 import PlateBadge from '../../../components/common/PlateBadge'
 import { IconDownload } from '../../../components/common/Icons'
+import { purposeLabel } from '../../../utils/purpose'
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 
@@ -115,7 +116,11 @@ export default function History() {
                     <PlateBadge plate={s.plate} />
                     <div className="session-item-meta">
                       <span className="session-item-date">{dateStr} · {timeStr}</span>
-                      {s.zoneDesc && <span className="session-item-zone">{s.zoneDesc}</span>}
+                      {(s.zoneDesc || s.purpose) && (
+                        <span className="session-item-zone">
+                          {[purposeLabel(s.purpose), s.zoneDesc].filter(Boolean).join(' · ')}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="session-item-end">

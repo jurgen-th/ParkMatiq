@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
-import { getProfile, getActiveSession, setActiveSession, getSettings, saveSettings } from '../../../services/storage'
-import { rateForSession, rateForZone, nearbyZones, formatEuro, formatWhen, effectiveDayCap, parseAmount } from '../../../services/tariffs'
+import { getProfile, getActiveSession, getSettings, saveSettings } from '../../../services/storage'
+import { rateForSession, rateForZone, nearbyZones, formatEuro, formatWhen } from '../../../services/tariffs'
 import { chargePointsAvailable } from '../../../services/charging'
 import { geocode } from '../../../services/geolocation'
-import { requestPermission, notify } from '../../../services/notifications'
+import { requestPermission } from '../../../services/notifications'
 import { TILE_URL, TILE_ATTRIBUTION, userIcon } from '../../../utils/map'
 import BottomNav from '../../../components/layout/BottomNav'
 import PlateBadge from '../../../components/common/PlateBadge'
@@ -13,6 +13,8 @@ import ParkingZones from '../../parking-zones/components/ParkingZones'
 import ZonePicker from '../../parking-zones/components/ZonePicker'
 import ChargePoints from '../../charging/components/ChargePoints'
 import NavigateSheet from '../../../components/common/NavigateSheet'
+import PurposeToggle from '../components/PurposeToggle'
+import { startSession } from '../startSession'
 import { IconPlay, IconLocate, IconSearch, IconBolt, IconNavigate } from '../../../components/common/Icons'
 
 const DEFAULT_CENTER = [51.9225, 4.47917] // Rotterdam
@@ -113,6 +115,7 @@ export default function Home() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [showCharging, setShowCharging] = useState(false)
   const [navDest, setNavDest] = useState(null)
+  const [purpose, setPurpose] = useState(() => getSettings().sessionPurpose)
   const recenterRef = useRef(null)
 
   // Show what parking costs here *before* the user starts, so a free spot is
@@ -188,26 +191,8 @@ export default function Home() {
       : await rateForSession(
           pos?.[0] ?? null, pos?.[1] ?? null, settings.permitZones, { accuracy: acc }
         )
-    setActiveSession({
-      plate: profile.plate,
-      startTime: new Date().toISOString(),
-      lat: pos?.[0] ?? null,
-      lon: pos?.[1] ?? null,
-      rate: t.rate,
-      windows: t.tariff === 'permit' ? null : t.windows,
-      // Ceiling for a day of this session, fixed at start: the zone's dagtarief
-      // or the driver's own limit, whichever is lower.
-      dayCap: effectiveDayCap(t.zoneDayCap, parseAmount(settings.maxDailyCost)),
-      zoneDesc: t.zoneDesc,
-      zoneId: t.zoneId,
-      tariff: t.tariff,
-      // Where the zone came from. A receipt used to claim money back or to
-      // contest a fine should not present a zone the driver chose as something
-      // we measured.
-      zonePicked: !!pickedZone,
-    })
+    startSession({ plate: profile.plate, purpose, pos, t, zonePicked: !!pickedZone })
     navigate('/session')
-    notify('Parkeren gestart', `Kenteken ${profile.plate}`)
   }
 
   async function handleSearch(e) {
@@ -262,7 +247,7 @@ export default function Home() {
           zoomControl={false}
         >
           <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} />
-          <ParkingZones />
+          <ParkingZones onNavigate={setNavDest} />
           {showCharging && <ChargePoints onNavigate={setNavDest} />}
           <FlyToLocation position={location} />
           <MapController recenterRef={recenterRef} />
@@ -369,6 +354,7 @@ export default function Home() {
                 {pickedZone ? 'Andere zone kiezen' : 'Klopt de zone niet? Kies zelf'}
               </button>
             )}
+            <PurposeToggle value={purpose} onChange={setPurpose} />
             <button
               className="btn btn-yellow"
               onClick={handleStart}

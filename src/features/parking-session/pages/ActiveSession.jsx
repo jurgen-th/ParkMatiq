@@ -7,6 +7,7 @@ import { formatDuration } from '../../../services/receipts'
 import { costOf, rateAt, paidUntil, nextPaidStart, dayCapReached, formatEuro, formatWhen } from '../../../services/tariffs'
 import { TILE_URL, TILE_ATTRIBUTION, parkIcon } from '../../../utils/map'
 import PlateBadge from '../../../components/common/PlateBadge'
+import { purposeLabel } from '../../../utils/purpose'
 import BottomNav from '../../../components/layout/BottomNav'
 import { IconStop } from '../../../components/common/Icons'
 
@@ -93,7 +94,11 @@ export default function ActiveSession() {
           </div>
 
           <div className="sc-title">{session.zoneDesc || 'Parkeersessie'}</div>
-          <div className="sc-sub">Gestart om {startStr} · {paid ? 'meter loopt' : 'geen kosten'}</div>
+          <div className="sc-sub">
+            Gestart om {startStr}
+            {session.purpose && ` · ${purposeLabel(session.purpose)}`}
+            {' · '}{paid ? 'meter loopt' : 'geen kosten'}
+          </div>
 
           <div className="sc-tiles">
             <div className="sc-tile">

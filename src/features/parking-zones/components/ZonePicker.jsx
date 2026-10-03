@@ -5,17 +5,22 @@ import { formatEuro, zoneKey } from '../../../services/tariffs'
 // one of those, and offering the whole map would invite picking the cheaper
 // zone three streets over. The sign at the plek is the authority, so the
 // distance is shown next to every option rather than hidden behind a guess.
-export default function ZonePicker({ open, zones, selected, onPick, onClose }) {
+export default function ZonePicker({
+  open, zones, selected, onPick, onClose,
+  title = 'In welke zone sta je?',
+  sub = 'Zones in de buurt, dichtstbijzijnde eerst. Het bord bij je plek is leidend.',
+  closeLabel = 'Annuleren',
+  children,
+}) {
   if (!open) return null
 
   return (
     <div className="nav-overlay" onClick={onClose}>
       <div className="nav-sheet" onClick={e => e.stopPropagation()}>
         <div className="sheet-handle" />
-        <h2 className="nav-sheet-title">In welke zone sta je?</h2>
-        <p className="nav-sheet-sub">
-          Zones in de buurt, dichtstbijzijnde eerst. Het bord bij je plek is leidend.
-        </p>
+        <h2 className="nav-sheet-title">{title}</h2>
+        <p className="nav-sheet-sub">{sub}</p>
+        {children}
 
         {zones.length === 0 ? (
           <p className="start-hint">Geen betaalde zones in de buurt gevonden.</p>
@@ -44,7 +49,7 @@ export default function ZonePicker({ open, zones, selected, onPick, onClose }) {
           </ul>
         )}
 
-        <button className="nav-sheet-cancel" onClick={onClose}>Annuleren</button>
+        <button className="nav-sheet-cancel" onClick={onClose}>{closeLabel}</button>
       </div>
     </div>
   )

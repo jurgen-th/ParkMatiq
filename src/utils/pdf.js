@@ -1,5 +1,7 @@
 import { jsPDF } from 'jspdf'
 import { sessionCost, formatEuro } from './tariff'
+import { formatPlate } from './plate'
+import { purposeLabel } from './purpose'
 
 // Why the stay cost what it cost. A receipt that only lists times is no use to
 // anyone claiming it back, so the basis for the amount is spelled out.
@@ -37,6 +39,8 @@ export function generateReceipt(session) {
   const durationStr = formatDuration(session.duration)
   const refNum = `PM-${session.id}`
   const cost = sessionCost(session)
+  const purpose = purposeLabel(session.purpose)
+  const plate = formatPlate(session.plate)
 
   // Header bar, in the app's navy
   doc.setFillColor(0, 45, 114)
@@ -49,7 +53,7 @@ export function generateReceipt(session) {
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(11)
-  doc.text('Parkeer Bewijs', 105, 30, { align: 'center' })
+  doc.text(purpose ? `Parkeerbewijs · ${purpose}` : 'Parkeerbewijs', 105, 30, { align: 'center' })
 
   // Divider
   doc.setDrawColor(200, 210, 240)
@@ -71,6 +75,7 @@ export function generateReceipt(session) {
 
   doc.setTextColor(30, 30, 30)
   const rows = [
+    ...(purpose ? [['Soort', purpose]] : []),
     ['Datum',      dateStr],
     ['Start',      startStr],
     ['Einde',      endStr],
@@ -82,7 +87,7 @@ export function generateReceipt(session) {
                    (session.zonePicked ? ' (zelf gekozen)' : '')],
     ['Tarief',     tariffBasis(session)],
     ['Locatie',    location],
-    ['Kenteken',   session.plate],
+    ['Kenteken',   plate],
     ['Referentie', refNum],
   ]
 
@@ -109,6 +114,6 @@ export function generateReceipt(session) {
   doc.text('Tarieven zijn indicatief en gebaseerd op open data van de RDW.',
     105, 284, { align: 'center' })
 
-  const fileName = `ParkMatiq_${session.plate}_${startDate.toISOString().slice(0, 10)}.pdf`
+  const fileName = `ParkMatiq_${purpose ? purpose + '_' : ''}${plate}_${startDate.toISOString().slice(0, 10)}.pdf`
   doc.save(fileName)
 }

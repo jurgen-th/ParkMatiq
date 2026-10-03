@@ -380,6 +380,13 @@ html[data-theme='dark'] .zone-legend {
   cursor: pointer;
 }
 
+/* Privé / Zakelijk switch above the start button. */
+.purpose-toggle { margin: 0 0 10px; }
+html[data-theme='dark'] .purpose-toggle .seg-opt-active {
+  background: var(--yellow);
+  color: #0A1F3D;
+}
+
 /* Marks a tariff the driver corrected by hand, so the hint above the start
    button never reads as something we measured. */
 .zone-picked-tag {

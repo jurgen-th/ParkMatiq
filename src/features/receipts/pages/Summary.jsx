@@ -2,6 +2,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { formatDuration, generateReceipt } from '../../../services/receipts'
 import { sessionCost, formatEuro } from '../../../services/tariffs'
 import PlateBadge from '../../../components/common/PlateBadge'
+import { purposeLabel } from '../../../utils/purpose'
 import { IconDownload } from '../../../components/common/Icons'
 
 // Why a session cost what it did. Sessions from before the tariff states were
@@ -50,6 +51,9 @@ export default function Summary() {
           <div className="summary-row"><span>Duur</span><span>{formatDuration(session.duration)}</span></div>
           <div className="summary-row"><span>Van — tot</span><span>{startStr} – {endStr}</span></div>
           <div className="summary-row"><span>Tarief</span><span>{tariffLabel(session)}</span></div>
+          {session.purpose && (
+            <div className="summary-row"><span>Soort</span><span>{purposeLabel(session.purpose)}</span></div>
+          )}
           <div className="summary-row"><span>Kenteken</span><PlateBadge plate={session.plate} /></div>
         </div>
 
