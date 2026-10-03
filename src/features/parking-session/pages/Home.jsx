@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-lea
 import { getProfile, getActiveSession, getSettings, saveSettings } from '../../../services/storage'
 import { rateForSession, rateForZone, nearbyZones, zoneForPoint, formatEuro, formatWhen } from '../../../services/tariffs'
 import { loadZones } from '../../../utils/zones'
+import { searchZones } from '../../../utils/zoneSearch'
 import { chargePointsAvailable } from '../../../services/charging'
 import { geocode } from '../../../services/geolocation'
 import { requestPermission } from '../../../services/notifications'
@@ -89,10 +90,14 @@ function FlyToLocation({ position }) {
 
 // Exposes an imperative recenter handler so the button (rendered outside the
 // map) can fly back to the user's location on demand.
-function MapController({ recenterRef }) {
+function MapController({ recenterRef, centerRef }) {
   const map = useMap()
   useEffect(() => {
     recenterRef.current = pos => map.flyTo(pos, 16, { duration: 1 })
+    centerRef.current = () => {
+      const c = map.getCenter()
+      return [c.lat, c.lng]
+    }
   }, [map])
   return null
 }
@@ -141,6 +146,9 @@ export default function Home() {
   const [vehicles, setVehicles] = useState([])
   const [plate, setPlate] = useState(null)
   const recenterRef = useRef(null)
+  const centerRef = useRef(null)
+  // Zones whose number or name matches the search, e.g. "50" or "Zone 50".
+  const [zoneResults, setZoneResults] = useState([])
   // Where the driver says the car is, while pin mode is on (null otherwise).
   const [pinMode, setPinMode] = useState(false)
   const [pinPos, setPinPos] = useState(null)
@@ -267,15 +275,33 @@ export default function Home() {
     if (!q || searching) return
     setSearching(true)
     setSearchErr('')
-    const result = await geocode(q)
+    setSearchLabel('')
+    setSearchPos(null)
+    setZoneResults([])
+    // Zones near the map centre first: "Zone 10" exists in many municipalities.
+    const zones = await searchZones(q, centerRef.current?.() ?? location)
+    setZoneResults(zones)
+    // A zone number from a sign ("50") is not an address — don't also fly the
+    // map to whatever the geocoder makes of it.
+    const exactZone = zones.length > 0 && /^(zone\s*)?[\w-]{1,8}$/i.test(q) && /\d/.test(q)
+    const result = exactZone ? null : await geocode(q)
     setSearching(false)
     if (result) {
       setSearchPos(result.pos)
       setSearchLabel(result.label)
       recenterRef.current?.(result.pos)
-    } else {
-      setSearchErr('Geen locatie gevonden')
+    } else if (!zones.length) {
+      setSearchErr('Geen locatie of zone gevonden')
     }
+  }
+
+  // A zone from the search: drop the pin inside it so the driver sees the
+  // zone and its price on the start sheet before starting. With a session
+  // already running there is nothing to start; just show the zone.
+  function pickZoneResult(z) {
+    setZoneResults([])
+    if (active) recenterRef.current?.(z.point)
+    else startPinMode(z.point)
   }
 
   // The driver overriding our verdict. Price it immediately so the sheet shows
@@ -319,7 +345,7 @@ export default function Home() {
           <ParkingZones onNavigate={setNavDest} onPark={active ? null : startPinMode} />
           {showCharging && <ChargePoints onNavigate={setNavDest} />}
           <FlyToLocation position={location} />
-          <MapController recenterRef={recenterRef} />
+          <MapController recenterRef={recenterRef} centerRef={centerRef} />
           <PinTracker active={pinMode} onCenter={setPinPos} viewRef={pinViewRef} />
           {location && <Marker position={location} icon={userIcon} />}
           {searchPos && <Marker position={searchPos} />}
@@ -372,7 +398,7 @@ export default function Home() {
           <input
             value={query}
             onChange={e => { setQuery(e.target.value); setSearchErr('') }}
-            placeholder="Zoek een straat of plaats…"
+            placeholder="Zoek een straat, plaats of zone…"
             enterKeyHint="search"
             aria-label="Zoek locatie"
           />
@@ -380,12 +406,30 @@ export default function Home() {
             <button
               type="button"
               className="map-search-clear"
-              onClick={() => { setQuery(''); setSearchPos(null); setSearchErr(''); setSearchLabel('') }}
+              onClick={() => { setQuery(''); setSearchPos(null); setSearchErr(''); setSearchLabel(''); setZoneResults([]) }}
               aria-label="Wissen"
             >✕</button>
           )}
         </div>
         {searching && <span className="map-search-status">Zoeken…</span>}
+        {!searching && zoneResults.length > 0 && (
+          <div className="map-search-zones">
+            {zoneResults.map(z => (
+              <button
+                key={`${z.municipality}|${z.desc}`}
+                type="button"
+                className="map-search-zone"
+                onClick={() => pickZoneResult(z)}
+              >
+                <span className="map-search-zone-p">P</span>
+                <span className="map-search-zone-name">{z.desc}</span>
+                <span className="map-search-zone-meta">
+                  {z.municipality}{z.maxRate ? ` · tot ${formatEuro(z.maxRate)}/uur` : ''}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
         {searchErr && <span className="map-search-status err">{searchErr}</span>}
         {!searching && !searchErr && searchLabel && (
           <span className="map-search-status found">

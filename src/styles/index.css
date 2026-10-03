@@ -558,6 +558,57 @@ html[data-theme='dark'] .purpose-toggle .seg-opt-active {
   box-shadow: 0 2px 8px var(--shadow);
 }
 .map-search-status.err { color: var(--red); }
+
+/* Zone matches for a search like "50" or "Kanaleneiland". */
+.map-search-zones {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px var(--shadow);
+  overflow: hidden;
+}
+
+.map-search-zone {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.map-search-zone:last-child { border-bottom: none; }
+
+.map-search-zone-p {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  background: var(--yellow);
+  color: #002D72;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.map-search-zone-name { font-size: 13.5px; font-weight: 600; color: var(--text); }
+
+.map-search-zone-meta {
+  min-width: 0;
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .map-search-status.found {
   max-width: 100%;
   display: flex;
