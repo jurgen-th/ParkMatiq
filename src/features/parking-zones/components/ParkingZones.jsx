@@ -39,7 +39,10 @@ function style(feature) {
 //
 // The Navigeer destination is the spot the user tapped: that is inside the zone
 // by definition, which a polygon's centre (outside an L-shaped zone) is not.
-function bindZonePopup(feature, layer, onNavigate) {
+//
+// "Parkeer hier" hands the same tapped spot to Home, which puts the pin there so
+// the driver can check the zone before starting.
+function bindZonePopup(feature, layer, onNavigate, onPark) {
   const { desc, maxEurPerHour } = feature.properties
   const price = maxEurPerHour
     ? `tot €${maxEurPerHour.toFixed(2).replace('.', ',')}/uur`
@@ -59,6 +62,17 @@ function bindZonePopup(feature, layer, onNavigate) {
     document.createElement('br'),
     price,
   )
+  if (onPark) {
+    const park = document.createElement('button')
+    park.className = 'cp-nav-btn zone-park-btn'
+    park.textContent = 'Parkeer hier'
+    park.onclick = () => {
+      const at = layer.getPopup().getLatLng()
+      layer.closePopup()
+      onPark([at.lat, at.lng])
+    }
+    content.append(park)
+  }
   if (onNavigate) {
     const nav = document.createElement('button')
     nav.className = 'cp-nav-btn'
@@ -79,7 +93,7 @@ function bindZonePopup(feature, layer, onNavigate) {
 // Renders only the zones intersecting the current viewport, above a zoom
 // threshold. With ~2.6k nationwide zones, drawing them all at once would choke
 // Leaflet on a phone; a bbox filter keeps only the local handful on screen.
-export default function ParkingZones({ onNavigate }) {
+export default function ParkingZones({ onNavigate, onPark }) {
   const map = useMap()
   const [all, setAll] = useState(null)
   const [view, setView] = useState(null) // { fc, key }
@@ -116,7 +130,7 @@ export default function ParkingZones({ onNavigate }) {
       key={view.key}
       data={view.fc}
       style={style}
-      onEachFeature={(f, layer) => bindZonePopup(f, layer, onNavigate)}
+      onEachFeature={(f, layer) => bindZonePopup(f, layer, onNavigate, onPark)}
     />
   )
 }

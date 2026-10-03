@@ -365,6 +365,38 @@ html[data-theme='dark'] .zone-legend {
   color: var(--text-muted);
 }
 
+/* Pin mode: fixed pin whose tip marks the map centre, plus a hint chip. */
+.map-pin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1000;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+  filter: drop-shadow(0 3px 4px rgba(15, 30, 86, 0.35));
+}
+
+.map-pin-hint {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 10px);
+  z-index: 1000;
+  transform: translateX(-50%);
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--blue);
+  color: var(--yellow);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.zone-pick-links { display: flex; justify-content: center; gap: 4px; }
+
+/* Primary action in a zone popup; Navigeer below it stays secondary. */
+.zone-park-btn { background: var(--yellow); color: #002D72; }
+
 /* Entry point to the picker, under the tariff hint on the home sheet. */
 .zone-pick-link {
   display: block;

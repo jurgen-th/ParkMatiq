@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet'
 import { getProfile, getActiveSession, getSettings, saveSettings } from '../../../services/storage'
-import { rateForSession, rateForZone, nearbyZones, formatEuro, formatWhen } from '../../../services/tariffs'
+import { rateForSession, rateForZone, nearbyZones, zoneForPoint, formatEuro, formatWhen } from '../../../services/tariffs'
+import { loadZones } from '../../../utils/zones'
 import { chargePointsAvailable } from '../../../services/charging'
 import { geocode } from '../../../services/geolocation'
 import { requestPermission } from '../../../services/notifications'
@@ -96,6 +97,25 @@ function MapController({ recenterRef }) {
   return null
 }
 
+// Pin mode: a fixed pin sits in the middle of the map and the driver drags the
+// map until it is on their car — the way EasyPark corrects a wrong zone. This
+// reports the map centre whenever it settles, and lets Home jump the map to a
+// spot instantly (setView, not flyTo: the pin must land before we read it).
+function PinTracker({ active, onCenter, viewRef }) {
+  const map = useMap()
+  useEffect(() => {
+    viewRef.current = pos =>
+      map.setView(pos ?? map.getCenter(), Math.max(map.getZoom(), 17), { animate: false })
+  }, [map])
+  const report = () => {
+    const c = map.getCenter()
+    onCenter([c.lat, c.lng])
+  }
+  useMapEvents({ moveend: () => { if (active) report() } })
+  useEffect(() => { if (active) report() }, [active])
+  return null
+}
+
 export default function Home() {
   const navigate = useNavigate()
   const [profile,  setProfile]  = useState(null)
@@ -121,6 +141,10 @@ export default function Home() {
   const [vehicles, setVehicles] = useState([])
   const [plate, setPlate] = useState(null)
   const recenterRef = useRef(null)
+  // Where the driver says the car is, while pin mode is on (null otherwise).
+  const [pinMode, setPinMode] = useState(false)
+  const [pinPos, setPinPos] = useState(null)
+  const pinViewRef = useRef(null)
 
   // Show what parking costs here *before* the user starts, so a free spot is
   // never mistaken for a paid one.
@@ -169,6 +193,39 @@ export default function Home() {
     }
   }, [])
 
+  // Price whatever sits under the pin, the same way a picked zone is priced.
+  // Clear of every zone, the pin is priced like a GPS fix with no error radius.
+  useEffect(() => {
+    if (!pinMode || !pinPos) return
+    let alive = true
+    loadZones().then(async data => {
+      const zone = zoneForPoint(pinPos[0], pinPos[1], data)
+      const permits = getSettings().permitZones
+      const t = zone ? rateForZone(zone, permits) : await rateForSession(pinPos[0], pinPos[1], permits)
+      if (!alive) return
+      setPickedZone(zone)
+      setTariffHere(t)
+    })
+    return () => { alive = false }
+  }, [pinMode, pinPos])
+
+  // Enter pin mode at `pos` (a tapped zone), else at the GPS fix, else wherever
+  // the map is now — zoomed in to street level either way, so the pin is precise.
+  function startPinMode(pos = location) {
+    pinViewRef.current?.(pos)
+    setPinMode(true)
+  }
+
+  // Back to the GPS verdict: drop the pin and re-resolve from the fix.
+  function stopPinMode() {
+    setPinMode(false)
+    setPinPos(null)
+    setPickedZone(null)
+    if (!location) { setTariffHere(null); return }
+    rateForSession(location[0], location[1], getSettings().permitZones, { accuracy })
+      .then(setTariffHere)
+  }
+
   async function handleStart() {
     setStarting(true)
     await requestPermission()
@@ -192,12 +249,15 @@ export default function Home() {
     // never fall back to an invented rate either way. The zone's weekly windows
     // travel with the session so the cost stops accruing when paid hours end,
     // whatever the zone data says later.
+    // A placed pin is where the car is: it replaces the fix as the location,
+    // and whatever zone it resolves to counts as the driver's own choice.
+    if (pinMode && pinPos) { pos = pinPos; acc = null }
     const t = pickedZone
       ? rateForZone(pickedZone, settings.permitZones)
       : await rateForSession(
           pos?.[0] ?? null, pos?.[1] ?? null, settings.permitZones, { accuracy: acc }
         )
-    startSession({ plate, purpose, pos, t, zonePicked: !!pickedZone })
+    startSession({ plate, purpose, pos, t, zonePicked: !!pickedZone || pinMode })
     navigate('/session')
   }
 
@@ -221,6 +281,9 @@ export default function Home() {
   // The driver overriding our verdict. Price it immediately so the sheet shows
   // what the correction actually costs before they commit to it.
   function handlePickZone(zone) {
+    // A pick from the list is a zone choice at the GPS fix, not at the pin.
+    setPinMode(false)
+    setPinPos(null)
     setPickedZone(zone)
     setTariffHere(rateForZone(zone, getSettings().permitZones))
     setPickerOpen(false)
@@ -253,13 +316,22 @@ export default function Home() {
           zoomControl={false}
         >
           <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} />
-          <ParkingZones onNavigate={setNavDest} />
+          <ParkingZones onNavigate={setNavDest} onPark={active ? null : startPinMode} />
           {showCharging && <ChargePoints onNavigate={setNavDest} />}
           <FlyToLocation position={location} />
           <MapController recenterRef={recenterRef} />
+          <PinTracker active={pinMode} onCenter={setPinPos} viewRef={pinViewRef} />
           {location && <Marker position={location} icon={userIcon} />}
           {searchPos && <Marker position={searchPos} />}
         </MapContainer>
+        {pinMode && (
+          <>
+            <div className="map-pin" aria-hidden="true">
+              <svg width="34" height="44" viewBox="0 0 34 44"><path d="M17 43C17 43 32 27 32 16A15 15 0 0 0 2 16C2 27 17 43 17 43Z" fill="#F7D117" stroke="#002D72" strokeWidth="2.5"/><text x="17" y="22" textAnchor="middle" fontSize="15" fontWeight="700" fill="#002D72" fontFamily="DM Sans, sans-serif">P</text></svg>
+            </div>
+            <div className="map-pin-hint">Sleep de kaart tot de pin op je auto staat</div>
+          </>
+        )}
         {location && (
           <button
             className="map-recenter"
@@ -358,13 +430,22 @@ export default function Home() {
           <>
             {tariffHere && (
               <p className={`start-hint${FREE_STATES.has(tariffHere.tariff) ? ' free' : ''}`}>
-                {pickedZone && <span className="zone-picked-tag">Zelf gekozen</span>}
+                {(pickedZone || pinMode) && <span className="zone-picked-tag">{pinMode ? 'Pin' : 'Zelf gekozen'}</span>}
                 {tariffHint(tariffHere)}
               </p>
             )}
-            {zoneOptions.length > 0 && (
-              <button className="zone-pick-link" onClick={() => setPickerOpen(true)}>
-                {pickedZone ? 'Andere zone kiezen' : 'Klopt de zone niet? Kies zelf'}
+            {pinMode ? (
+              <div className="zone-pick-links">
+                <button className="zone-pick-link" onClick={stopPinMode}>Terug naar GPS-locatie</button>
+                {zoneOptions.length > 0 && (
+                  <button className="zone-pick-link" onClick={() => setPickerOpen(true)}>Kies uit lijst</button>
+                )}
+              </div>
+            ) : (
+              <button className="zone-pick-link" onClick={() => startPinMode()}>
+                {pickedZone ? 'Andere zone kiezen'
+                  : tariffHere ? 'Klopt de zone niet? Wijs je auto aan op de kaart'
+                  : 'Wijs je auto aan op de kaart'}
               </button>
             )}
             <PurposeToggle value={purpose} onChange={setPurpose} />
@@ -376,7 +457,7 @@ export default function Home() {
               <IconPlay size={16} />
               {starting ? 'Bezig…' : 'Start parkeren'}
             </button>
-            {!locEnabled && (
+            {!locEnabled && !pinMode && (
               <p className="start-hint">Locatie staat uit — het tarief kan niet worden bepaald.</p>
             )}
           </>
