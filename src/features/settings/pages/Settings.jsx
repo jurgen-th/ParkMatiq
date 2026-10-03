@@ -4,6 +4,8 @@ import { getProfile, saveProfile, clearAllData, getSettings, saveSettings } from
 import { supabase, backendEnabled } from '../../../services/backend/supabase'
 import { deleteAccount, logout } from '../../../services/backend/sync'
 import { normalizePlate, isValidPlate } from '../../../utils/plate'
+import { vehicleList } from '../../../utils/vehicles'
+import PlateBadge from '../../../components/common/PlateBadge'
 import { exportData } from '../../../utils/dataExport'
 import { currentTheme, setTheme } from '../../../utils/theme'
 import BottomNav from '../../../components/layout/BottomNav'
@@ -14,7 +16,9 @@ export default function Settings() {
   const navigate = useNavigate()
   const [name,  setName]  = useState('')
   const [email, setEmail] = useState('')
-  const [plate, setPlate] = useState('')
+  const [vehicles, setVehicles] = useState([])
+  const [newPlate, setNewPlate] = useState('')
+  const [newLabel, setNewLabel] = useState('')
   const [saved, setSaved] = useState(false)
   const [plateErr, setPlateErr] = useState('')
   const [locationOn, setLocationOn] = useState(false)
@@ -43,8 +47,8 @@ export default function Settings() {
     if (!p) { navigate('/login', { replace: true }); return }
     setName(p.name)
     setEmail(p.email || '')
-    setPlate(p.plate)
     const s = getSettings()
+    setVehicles(vehicleList(p, s))
     setLocationOn(s.location)
     setBudget(s.monthlyBudget || '')
     setMaxDaily(s.maxDailyCost || '')
@@ -103,14 +107,37 @@ export default function Settings() {
   }
 
   function handleSave() {
-    if (!name.trim() || !plate.trim()) return
-    if (!isValidPlate(plate)) { setPlateErr('Dat lijkt geen geldig Nederlands kenteken'); return }
-    const profile = { name: name.trim(), plate: normalizePlate(plate) }
+    if (!name.trim()) return
+    const profile = { name: name.trim(), plate: getProfile().plate }
     if (email.trim()) profile.email = email.trim()
     saveProfile(profile)
-    setPlateErr('')
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+  }
+
+  // Vehicles save immediately, like the other preferences. The main vehicle is
+  // the profile's plate (see utils/vehicles.js), so changing it rewrites that.
+  function persistVehicles(list, mainPlate) {
+    saveSettings({ vehicles: list })
+    const p = getProfile()
+    if (mainPlate !== p.plate) saveProfile({ ...p, plate: mainPlate })
+    setVehicles(vehicleList(getProfile(), getSettings()))
+  }
+
+  function addVehicle() {
+    if (!isValidPlate(newPlate)) { setPlateErr('Dat lijkt geen geldig Nederlands kenteken'); return }
+    const plate = normalizePlate(newPlate)
+    if (vehicles.some(v => v.plate === plate)) { setPlateErr('Dit kenteken staat er al tussen'); return }
+    persistVehicles([...vehicles, { plate, label: newLabel.trim() }], vehicles[0].plate)
+    setNewPlate('')
+    setNewLabel('')
+    setPlateErr('')
+  }
+
+  function removeVehicle(plate) {
+    if (!window.confirm('Dit voertuig verwijderen? Eerdere sessies en bonnen blijven bewaard.')) return
+    const rest = vehicles.filter(v => v.plate !== plate)
+    persistVehicles(rest, rest[0].plate)
   }
 
   async function handleClear() {
@@ -207,24 +234,65 @@ export default function Settings() {
             )}
           </div>
 
+          <button className="btn btn-yellow" onClick={handleSave}>
+            {saved ? '✓  Opgeslagen' : 'Opslaan'}
+          </button>
+        </div>
+
+        <div className="card">
+          <h2 className="card-title">Voertuigen</h2>
+          <ul className="vehicle-list">
+            {vehicles.map((v, i) => (
+              <li key={v.plate} className="vehicle-item">
+                <PlateBadge plate={v.plate} />
+                <span className="vehicle-item-label">
+                  {i === 0 && <span className="vehicle-item-main">Hoofdvoertuig </span>}
+                  {v.label}
+                </span>
+                {i > 0 && (
+                  <button className="vehicle-item-btn" onClick={() => persistVehicles(vehicles, v.plate)}>
+                    Maak hoofd
+                  </button>
+                )}
+                {vehicles.length > 1 && (
+                  <button className="vehicle-item-btn" onClick={() => removeVehicle(v.plate)}>
+                    Verwijder
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+
           <div className="form-group">
-            <label>Kenteken</label>
+            <label>Voertuig toevoegen</label>
             <div className="input-row input-plate">
               <span className="plate-strip">NL</span>
               <input
-                value={plate}
-                onChange={e => { setPlate(e.target.value.toUpperCase()); setSaved(false); setPlateErr('') }}
+                value={newPlate}
+                onChange={e => { setNewPlate(e.target.value.toUpperCase()); setPlateErr('') }}
                 placeholder="AB-123-C"
                 autoCapitalize="characters"
                 autoComplete="off"
+                aria-label="Kenteken"
+              />
+            </div>
+          </div>
+          <div className="form-group">
+            <div className="input-row">
+              <input
+                value={newLabel}
+                onChange={e => setNewLabel(e.target.value)}
+                placeholder="Naam (optioneel), bv. Leaseauto"
+                maxLength={30}
+                aria-label="Naam voertuig"
               />
             </div>
           </div>
 
           {plateErr && <p className="form-error">{plateErr}</p>}
 
-          <button className="btn btn-yellow" onClick={handleSave}>
-            {saved ? '✓  Opgeslagen' : 'Opslaan'}
+          <button className="btn btn-ghost btn-sm" onClick={addVehicle} disabled={!newPlate.trim()}>
+            Toevoegen
           </button>
         </div>
 

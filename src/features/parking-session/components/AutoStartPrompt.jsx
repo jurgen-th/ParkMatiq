@@ -4,6 +4,8 @@ import { getProfile, getActiveSession, getSettings } from '../../../services/sto
 import { rateForZone } from '../../../services/tariffs'
 import ZonePicker from '../../parking-zones/components/ZonePicker'
 import PurposeToggle from './PurposeToggle'
+import VehiclePicker from './VehiclePicker'
+import { vehicleList, defaultPlate } from '../../../utils/vehicles'
 import { onZonePrompt } from '../hooks/useDriveDetection'
 import { startSession } from '../startSession'
 
@@ -13,16 +15,20 @@ export default function AutoStartPrompt() {
   const navigate = useNavigate()
   const [prompt, setPrompt] = useState(null) // { pos, zones }
   const [purpose, setPurpose] = useState(() => getSettings().sessionPurpose)
+  const [vehicles, setVehicles] = useState([])
+  const [plate, setPlate] = useState(null)
 
   useEffect(() => onZonePrompt(p => {
     if (!getProfile() || getActiveSession()) return
     setPurpose(getSettings().sessionPurpose)
+    setVehicles(vehicleList(getProfile(), getSettings()))
+    setPlate(defaultPlate(getProfile(), getSettings()))
     setPrompt(p)
   }), [])
 
   function pick(zone) {
     const t = rateForZone(zone, getSettings().permitZones)
-    startSession({ plate: getProfile().plate, purpose, pos: prompt.pos, t, zonePicked: true })
+    startSession({ plate, purpose, pos: prompt.pos, t, zonePicked: true })
     setPrompt(null)
     navigate('/session')
   }
@@ -37,6 +43,9 @@ export default function AutoStartPrompt() {
       onClose={() => setPrompt(null)}
       closeLabel="Niet nu"
     >
+      {vehicles.length > 1 && (
+        <VehiclePicker vehicles={vehicles} value={plate} onChange={setPlate} />
+      )}
       <PurposeToggle value={purpose} onChange={setPurpose} />
     </ZonePicker>
   )

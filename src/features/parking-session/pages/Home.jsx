@@ -14,6 +14,8 @@ import ZonePicker from '../../parking-zones/components/ZonePicker'
 import ChargePoints from '../../charging/components/ChargePoints'
 import NavigateSheet from '../../../components/common/NavigateSheet'
 import PurposeToggle from '../components/PurposeToggle'
+import VehiclePicker from '../components/VehiclePicker'
+import { vehicleList, defaultPlate } from '../../../utils/vehicles'
 import { startSession } from '../startSession'
 import { IconPlay, IconLocate, IconSearch, IconBolt, IconNavigate } from '../../../components/common/Icons'
 
@@ -116,6 +118,8 @@ export default function Home() {
   const [showCharging, setShowCharging] = useState(false)
   const [navDest, setNavDest] = useState(null)
   const [purpose, setPurpose] = useState(() => getSettings().sessionPurpose)
+  const [vehicles, setVehicles] = useState([])
+  const [plate, setPlate] = useState(null)
   const recenterRef = useRef(null)
 
   // Show what parking costs here *before* the user starts, so a free spot is
@@ -147,6 +151,8 @@ export default function Home() {
     if (!p) { navigate('/login', { replace: true }); return }
     if (!getSettings().onboardingDone) { navigate('/onboarding', { replace: true }); return }
     setProfile(p)
+    setVehicles(vehicleList(p, getSettings()))
+    setPlate(defaultPlate(p, getSettings()))
     setActive(getActiveSession())
     setLocEnabled(getSettings().location)
     setShowCharging(!!getSettings().showCharging)
@@ -191,7 +197,7 @@ export default function Home() {
       : await rateForSession(
           pos?.[0] ?? null, pos?.[1] ?? null, settings.permitZones, { accuracy: acc }
         )
-    startSession({ plate: profile.plate, purpose, pos, t, zonePicked: !!pickedZone })
+    startSession({ plate, purpose, pos, t, zonePicked: !!pickedZone })
     navigate('/session')
   }
 
@@ -325,15 +331,22 @@ export default function Home() {
 
       <div className="sheet">
         <div className="sheet-handle" />
-        <div className="vehicle-row">
-          <div className="vehicle-id">
-            <PlateBadge plate={profile.plate} />
-            <div className="vehicle-meta">
-              <span className="vehicle-label">Voertuig</span>
-              <span className="vehicle-name">{profile.name}</span>
+        {!active && vehicles.length > 1 ? (
+          <VehiclePicker vehicles={vehicles} value={plate} onChange={setPlate} />
+        ) : (
+          <div className="vehicle-row">
+            <div className="vehicle-id">
+              {/* A running session shows the car it was started for. */}
+              <PlateBadge plate={active?.plate ?? plate} />
+              <div className="vehicle-meta">
+                <span className="vehicle-label">Voertuig</span>
+                <span className="vehicle-name">
+                  {vehicles.find(v => v.plate === (active?.plate ?? plate))?.label || profile.name}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
         {active ? (
           <button
             className="btn btn-yellow"

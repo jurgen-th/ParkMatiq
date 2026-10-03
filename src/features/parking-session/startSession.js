@@ -8,7 +8,7 @@ import { purposeLabel } from '../../utils/purpose'
 // Shared by the Home start button and the auto-start zone prompt.
 export function startSession({ plate, purpose, pos, t, zonePicked = false }) {
   const settings = getSettings()
-  saveSettings({ sessionPurpose: purpose })
+  saveSettings({ sessionPurpose: purpose, lastPlate: plate })
   setActiveSession({
     plate,
     purpose,

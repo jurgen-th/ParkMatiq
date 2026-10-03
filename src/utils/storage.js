@@ -20,6 +20,8 @@ const DEFAULT_SETTINGS = {
   maxDailyCost: '',       // driver's own ceiling per day; empty = no ceiling
   endPreference: 'balanced',
   sessionPurpose: 'personal', // last choice on the start sheet: 'personal' | 'business'
+  vehicles: [],           // [{ plate, label }] — see utils/vehicles.js
+  lastPlate: null,        // vehicle preselected on the start sheet
 }
 
 // How many sessions we keep. Receipts are the reason: a driver claiming parking
