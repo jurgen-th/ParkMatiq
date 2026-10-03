@@ -650,14 +650,53 @@ html[data-theme='dark'] .purpose-toggle .seg-opt-active {
   border-bottom: 1px solid var(--border);
 }
 
-.vehicle-item-label {
+.vehicle-item-id {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.vehicle-item-label {
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  text-align: left;
+  cursor: text;
   font-size: 12.5px;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.vehicle-item-label > span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vehicle-item-placeholder { font-style: italic; opacity: 0.7; }
+
+/* Inline rename field, same footprint as the label it replaces. */
+.vehicle-item-input {
+  align-self: stretch;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1.5px solid var(--yellow);
+  border-radius: 8px;
+  background: var(--field);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12.5px;
 }
 
 .vehicle-item-main {

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getProfile, saveProfile, clearAllData, getSettings, saveSettings } from '../../../services/storage'
 import { supabase, backendEnabled } from '../../../services/backend/supabase'
 import { deleteAccount, logout } from '../../../services/backend/sync'
-import { normalizePlate, isValidPlate } from '../../../utils/plate'
+import { normalizePlate, isValidPlate, formatPlate } from '../../../utils/plate'
 import { vehicleList } from '../../../utils/vehicles'
 import PlateBadge from '../../../components/common/PlateBadge'
 import { exportData } from '../../../utils/dataExport'
@@ -19,6 +19,7 @@ export default function Settings() {
   const [vehicles, setVehicles] = useState([])
   const [newPlate, setNewPlate] = useState('')
   const [newLabel, setNewLabel] = useState('')
+  const [editing, setEditing] = useState(null) // { plate, draft } while renaming
   const [saved, setSaved] = useState(false)
   const [plateErr, setPlateErr] = useState('')
   const [locationOn, setLocationOn] = useState(false)
@@ -134,6 +135,15 @@ export default function Settings() {
     setPlateErr('')
   }
 
+  // Renaming saves on Enter or when the field loses focus; Escape cancels.
+  function saveLabel() {
+    if (!editing) return
+    const label = editing.draft.trim()
+    setEditing(null)
+    const list = vehicles.map(v => v.plate === editing.plate ? { ...v, label } : v)
+    persistVehicles(list, vehicles[0].plate)
+  }
+
   function removeVehicle(plate) {
     if (!window.confirm('Dit voertuig verwijderen? Eerdere sessies en bonnen blijven bewaard.')) return
     const rest = vehicles.filter(v => v.plate !== plate)
@@ -244,17 +254,45 @@ export default function Settings() {
           <ul className="vehicle-list">
             {vehicles.map((v, i) => (
               <li key={v.plate} className="vehicle-item">
-                <PlateBadge plate={v.plate} />
-                <span className="vehicle-item-label">
-                  {i === 0 && <span className="vehicle-item-main">Hoofdvoertuig </span>}
-                  {v.label}
-                </span>
-                {i > 0 && (
+                {/* Name sits under the plate so the actions never squeeze it out. */}
+                <div className="vehicle-item-id">
+                  <PlateBadge plate={v.plate} />
+                  {editing?.plate === v.plate ? (
+                    <input
+                      className="vehicle-item-input"
+                      value={editing.draft}
+                      onChange={e => setEditing({ plate: v.plate, draft: e.target.value })}
+                      onBlur={saveLabel}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') e.currentTarget.blur()
+                        if (e.key === 'Escape') setEditing(null)
+                      }}
+                      placeholder="Naam, bv. Leaseauto"
+                      maxLength={30}
+                      aria-label={`Naam voor ${formatPlate(v.plate)}`}
+                      autoFocus
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className="vehicle-item-label"
+                      onClick={() => setEditing({ plate: v.plate, draft: v.label || '' })}
+                      aria-label={`Naam wijzigen voor ${formatPlate(v.plate)}`}
+                    >
+                      {i === 0 && <span className="vehicle-item-main">Hoofdvoertuig</span>}
+                      {v.label
+                        ? <span>{v.label}</span>
+                        : <span className="vehicle-item-placeholder">Naam toevoegen</span>}
+                    </button>
+                  )}
+                </div>
+                {/* While renaming, the field gets the whole row. */}
+                {editing?.plate !== v.plate && i > 0 && (
                   <button className="vehicle-item-btn" onClick={() => persistVehicles(vehicles, v.plate)}>
                     Maak hoofd
                   </button>
                 )}
-                {vehicles.length > 1 && (
+                {editing?.plate !== v.plate && vehicles.length > 1 && (
                   <button className="vehicle-item-btn" onClick={() => removeVehicle(v.plate)}>
                     Verwijder
                   </button>
