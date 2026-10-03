@@ -6,6 +6,7 @@ import { supabase } from '../services/backend/supabase'
 import useDriveDetection from '../features/parking-session/hooks/useDriveDetection'
 import useParkingReminder from '../features/parking-session/hooks/useParkingReminder'
 import AutoStartPrompt from '../features/parking-session/components/AutoStartPrompt'
+import StopPrompt from '../features/parking-session/components/StopPrompt'
 import { backendEnabled } from '../services/backend/supabase'
 import { pullAll, onSyncError, onSyncOk } from '../services/backend/sync'
 
@@ -61,6 +62,7 @@ export default function App() {
       {backendEnabled && <RecoveryRedirect />}
       <AppRouter />
       <AutoStartPrompt />
+      <StopPrompt />
     </Providers>
   )
 }

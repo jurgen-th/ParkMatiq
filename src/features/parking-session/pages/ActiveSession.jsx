@@ -1,15 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MapContainer, TileLayer, Marker } from 'react-leaflet'
-import { getActiveSession, clearActiveSession, addSession } from '../../../services/storage'
-import { notify } from '../../../services/notifications'
-import { formatDuration } from '../../../services/receipts'
+import { getActiveSession } from '../../../services/storage'
 import { costOf, rateAt, paidUntil, nextPaidStart, dayCapReached, formatEuro, formatWhen } from '../../../services/tariffs'
 import { TILE_URL, TILE_ATTRIBUTION, parkIcon } from '../../../utils/map'
 import PlateBadge from '../../../components/common/PlateBadge'
 import { purposeLabel } from '../../../utils/purpose'
 import BottomNav from '../../../components/layout/BottomNav'
 import { IconStop } from '../../../components/common/Icons'
+import { stopSession } from '../stopSession'
 
 export default function ActiveSession() {
   const navigate  = useNavigate()
@@ -36,20 +35,8 @@ export default function ActiveSession() {
     setStopping(true)
     clearInterval(intervalRef.current)
 
-    const startMs = new Date(session.startTime).getTime()
-    const endMs = Date.now()
-    const duration = Math.floor((endMs - startMs) / 1000)
-    const completed = {
-      ...session,
-      id: startMs,
-      endTime: new Date(endMs).toISOString(),
-      duration,
-      cost: costOf(session, endMs),
-    }
-
-    clearActiveSession()
-    addSession(completed)
-    notify('Parkeren gestopt', `Duur: ${formatDuration(duration)} · ${formatEuro(completed.cost)}`)
+    const completed = stopSession()
+    if (!completed) { navigate('/', { replace: true }); return }
     navigate('/summary', { replace: true, state: { session: completed } })
   }
 

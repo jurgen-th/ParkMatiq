@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { getSettings, getActiveSession } from '../../../services/storage'
 import { requestPermission, notify } from '../../../services/notifications'
 import { rateForSession, nearbyZones } from '../../../services/tariffs'
-import { initialDetectorState, step, stopConfirmMs, THRESHOLDS } from '../../../utils/driveDetect'
+import { initialDetectorState, step, declineStop, stopConfirmMs, THRESHOLDS } from '../../../utils/driveDetect'
 
 // Listeners for the in-app zone prompt (AutoStartPrompt). A notification can't
 // carry a list of zones to choose from, so the choice is made in the app.
@@ -10,6 +10,15 @@ const zonePromptListeners = new Set()
 export function onZonePrompt(fn) {
   zonePromptListeners.add(fn)
   return () => zonePromptListeners.delete(fn)
+}
+
+// Listeners for the in-app "Sessie stoppen?" prompt (StopPrompt). They get a
+// `decline` callback: "Nee" or no answer within a minute feeds back into the
+// detector, which asks once more and then goes quiet (train, bus...).
+const stopPromptListeners = new Set()
+export function onStopPrompt(fn) {
+  stopPromptListeners.add(fn)
+  return () => stopPromptListeners.delete(fn)
 }
 
 // The car has stopped. Normally we just ask to start. But when the fix lands
@@ -59,6 +68,9 @@ export default function useDriveDetection() {
           promptStart(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy ?? null)
         } else if (prompt === 'stop') {
           notify('Sessie stoppen?', 'Je rijdt weer — tik om je parkeersessie te stoppen.', '#/session')
+          const decline = () => { stateRef.current = declineStop(stateRef.current, Date.now(), T) }
+          if (stopPromptListeners.size) stopPromptListeners.forEach(fn => fn({ decline }))
+          else decline() // nobody to answer: same as no answer
         }
       },
       () => {},

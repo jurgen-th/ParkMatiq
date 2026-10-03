@@ -23,6 +23,12 @@ export const THRESHOLDS = {
   stopConfirmMs: 20000,   // confirmed driving this long before asking to stop
   speedHoldMs: 10000,     // a derived speed stays valid this long between measurements
   drivingMinMeters: 100,  // and the phone must really have travelled this far
+  // "Nee" to "Sessie stoppen?" (or no answer). A driver who keeps saying no
+  // while moving is on a train or bus, not in the parked car: ask once more,
+  // then go quiet for a while before checking again.
+  repromptMs: 120000,     // after the first no, ask again this much later
+  maxDeclines: 2,         // this many no's in a row means: other transport
+  quietMs: 1800000,       // then stay quiet for 30 minutes
 }
 
 // How long to wait before suggesting a stop, per the driver's "Sessie stoppen"
@@ -52,6 +58,8 @@ export function initialDetectorState(now) {
     wasDriving: false,   // have we seen driving speed since the last park? (anti-nag)
     parkedFired: false,  // already prompted "start?" for this park event
     driveFired: false,   // already prompted "stop?" for this drive event
+    declines: 0,         // "no" answers in a row to the stop prompt
+    nextStopAt: 0,       // no stop prompt before this time (reprompt / quiet)
   }
 }
 
@@ -102,6 +110,7 @@ export function step(state, sample, T = THRESHOLDS) {
       s.parkedFired = false
     }
     if (sample.active && !s.driveFired && T.stopConfirmMs != null &&
+        sample.time >= s.nextStopAt &&
         drivenMs >= Math.max(T.drivingConfirmMs, T.stopConfirmMs)) {
       prompt = 'stop'
       s.driveFired = true
@@ -114,6 +123,8 @@ export function step(state, sample, T = THRESHOLDS) {
   if (s.wasDriving && speed <= T.stationarySpeed &&
       sample.time - s.lastMovingAt >= T.stationaryMs) {
     s.driveFired = false
+    // A trip that ended starts a fresh count; a quiet period keeps running.
+    s.declines = 0
     if (!sample.active && !s.parkedFired) {
       prompt = 'start'
       s.parkedFired = true
@@ -121,4 +132,18 @@ export function step(state, sample, T = THRESHOLDS) {
   }
 
   return { state: s, prompt }
+}
+
+// The driver answered "Nee" to the stop prompt, or let it time out. The first
+// no is asked again after `repromptMs`; `maxDeclines` in a row means they are
+// travelling some other way, so stay quiet for `quietMs` before asking again.
+export function declineStop(state, now, T = THRESHOLDS) {
+  const s = { ...state, driveFired: false, declines: state.declines + 1 }
+  if (s.declines >= T.maxDeclines) {
+    s.declines = 0
+    s.nextStopAt = now + T.quietMs
+  } else {
+    s.nextStopAt = now + T.repromptMs
+  }
+  return s
 }

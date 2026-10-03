@@ -365,6 +365,16 @@ html[data-theme='dark'] .zone-legend {
   color: var(--text-muted);
 }
 
+/* The running session, shown in the "Sessie stoppen?" prompt. */
+.stop-prompt-session {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
 /* Pin mode: fixed pin whose tip marks the map centre, plus a hint chip. */
 .map-pin {
   position: absolute;
