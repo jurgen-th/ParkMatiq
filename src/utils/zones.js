@@ -41,3 +41,74 @@ export function featureBBox(f) {
   f.__bbox = [minLon, minLat, maxLon, maxLat]
   return f.__bbox
 }
+// ── neighbouring zones ───────────────────────────────────────────────────────
+// "The zone next door" has to mean next door. A cheaper zone two neighbourhoods
+// away is not an alternative to where you actually park, so proximity is
+// measured between the polygons themselves rather than between their centres:
+// two long zones running down the same street have centres far apart and still
+// touch.
+
+const EARTH_M_PER_DEG = 111320
+
+function ringsOf(geom) {
+  if (!geom) return []
+  if (geom.type === 'Polygon') return [geom.coordinates[0]]
+  if (geom.type === 'MultiPolygon') return geom.coordinates.map(p => p[0])
+  return []
+}
+
+// Metres between two lon/lat points, flat-earth. Over the few hundred metres
+// this is used for, the error is far below the accuracy of a phone's fix.
+function metresBetween(a, b, cosLat) {
+  const dx = (a[0] - b[0]) * EARTH_M_PER_DEG * cosLat
+  const dy = (a[1] - b[1]) * EARTH_M_PER_DEG
+  return Math.hypot(dx, dy)
+}
+
+export function metresApart(f1, f2) {
+  const r1 = ringsOf(f1.geometry)
+  const r2 = ringsOf(f2.geometry)
+  if (!r1.length || !r2.length) return Infinity
+
+  const cosLat = Math.cos((r1[0][0][1] * Math.PI) / 180)
+  let best = Infinity
+  for (const ringA of r1) {
+    for (const ringB of r2) {
+      for (const a of ringA) {
+        for (const b of ringB) {
+          const d = metresBetween(a, b, cosLat)
+          if (d < best) best = d
+          if (best === 0) return 0
+        }
+      }
+    }
+  }
+  return best
+}
+
+// Zones whose edge comes within `maxMeters` of this one. The bounding-box test
+// first, so a nationwide file does not turn one lookup into three thousand
+// polygon comparisons.
+export function neighboursOf(target, data, maxMeters = 150) {
+  if (!target || !data?.features) return []
+
+  const [minLon, minLat, maxLon, maxLat] = featureBBox(target)
+  const padLat = maxMeters / EARTH_M_PER_DEG
+  const padLon = padLat / Math.max(0.2, Math.cos((minLat * Math.PI) / 180))
+
+  const out = []
+  for (const f of data.features) {
+    if (f === target) continue
+    if (f.properties.areaid === target.properties.areaid &&
+        f.properties.areamanagerid === target.properties.areamanagerid) continue
+
+    const [bMinLon, bMinLat, bMaxLon, bMaxLat] = featureBBox(f)
+    if (bMaxLon < minLon - padLon || bMinLon > maxLon + padLon) continue
+    if (bMaxLat < minLat - padLat || bMinLat > maxLat + padLat) continue
+
+    const d = metresApart(target, f)
+    if (d <= maxMeters) out.push({ feature: f, metres: Math.round(d) })
+  }
+  return out.sort((a, b) => a.metres - b.metres)
+}
+

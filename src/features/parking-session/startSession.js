@@ -6,7 +6,7 @@ import { purposeLabel } from '../../utils/purpose'
 
 // Starts a session from a resolved tariff `t` (rateForSession / rateForZone).
 // Shared by the Home start button and the auto-start zone prompt.
-export function startSession({ plate, purpose, pos, t, zonePicked = false }) {
+export function startSession({ plate, purpose, pos, t, zonePicked = false, startedBy = 'button' }) {
   const settings = getSettings()
   saveSettings({ sessionPurpose: purpose, lastPlate: plate })
   setActiveSession({
@@ -27,6 +27,9 @@ export function startSession({ plate, purpose, pos, t, zonePicked = false }) {
     // contest a fine should not present a zone the driver chose as something
     // we measured.
     zonePicked,
+    // How the session began. The history screen reports how often a prompt is
+    // acted on, which is only answerable if we write it down here.
+    startedBy,
   })
   notify('Parkeren gestart', `${purposeLabel(purpose)} · Kenteken ${formatPlate(plate)}`)
 }

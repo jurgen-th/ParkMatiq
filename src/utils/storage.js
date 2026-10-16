@@ -123,3 +123,22 @@ export function clearAllData() {
   localStorage.removeItem(SETTINGS_KEY)
   localStorage.removeItem(OWNER_KEY)
 }
+// ── prompt log ───────────────────────────────────────────────────────────────
+// One record per resolved prompt. Sessions cannot carry this: a start prompt
+// the driver ignores produces no session at all, and a declined stop prompt
+// leaves a session that is eventually stopped by hand. Without a log of its own
+// the history screen could only ever report prompts that were acted on, which
+// would make "acted on" a permanent 100%.
+const PROMPTS_KEY = 'pw_prompts'
+export const MAX_PROMPTS = 1000
+
+export function getPrompts() {
+  return read(PROMPTS_KEY, [])
+}
+
+export function logPrompt({ kind, acted }) {
+  const prompts = getPrompts()
+  prompts.unshift({ kind, acted: !!acted, at: new Date().toISOString() })
+  if (prompts.length > MAX_PROMPTS) prompts.length = MAX_PROMPTS
+  localStorage.setItem(PROMPTS_KEY, JSON.stringify(prompts))
+}

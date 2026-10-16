@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getActiveSession } from '../../../services/storage'
+import { getActiveSession, logPrompt } from '../../../services/storage'
 import { costOf, formatEuro } from '../../../services/tariffs'
 import PlateBadge from '../../../components/common/PlateBadge'
 import { onStopPrompt } from '../hooks/useDriveDetection'
@@ -15,11 +15,15 @@ const ANSWER_S = 60
 export default function StopPrompt() {
   const navigate = useNavigate()
   const [prompt, setPrompt] = useState(null) // { decline }
+  // When the prompt appeared, so a stop can record how long the session ran on
+  // past the moment we spotted the car moving.
+  const [promptedAt, setPromptedAt] = useState(null)
   const [left, setLeft] = useState(ANSWER_S)
 
   useEffect(() => onStopPrompt(p => {
     if (!getActiveSession()) { p.decline(); return }
     setLeft(ANSWER_S)
+    setPromptedAt(Date.now())
     setPrompt(p)
   }), [])
 
@@ -38,13 +42,15 @@ export default function StopPrompt() {
   }, [left])
 
   function decline() {
+    if (prompt) logPrompt({ kind: 'stop', acted: false })
     prompt?.decline()
     setPrompt(null)
   }
 
   function stop() {
+    logPrompt({ kind: 'stop', acted: true })
     setPrompt(null)
-    const completed = stopSession()
+    const completed = stopSession({ stoppedBy: 'prompt', promptedAt })
     if (completed) navigate('/summary', { replace: true, state: { session: completed } })
   }
 

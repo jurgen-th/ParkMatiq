@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getSessions, getProfile, getSettings } from '../../../services/storage'
 import { generateReceipt, formatDuration } from '../../../services/receipts'
-import { sessionCost, savingsVsMeter, formatEuro, parseAmount } from '../../../services/tariffs'
+import { sessionCost, formatEuro, parseAmount } from '../../../services/tariffs'
 import BottomNav from '../../../components/layout/BottomNav'
 import PlateBadge from '../../../components/common/PlateBadge'
 import { IconDownload } from '../../../components/common/Icons'
 import { purposeLabel } from '../../../utils/purpose'
+import Insights from '../components/Insights'
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 
@@ -14,6 +15,7 @@ export default function History() {
   const navigate  = useNavigate()
   const [sessions, setSessions] = useState([])
   const [filter, setFilter]     = useState('all')
+  const [view, setView]         = useState('insights')
   const [budget, setBudget]     = useState('')
 
   useEffect(() => {
@@ -32,8 +34,7 @@ export default function History() {
   const monthSessions = sessions.filter(s => {
     const d = new Date(s.startTime)
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-  })
-  const saved = monthSessions.reduce((sum, s) => sum + savingsVsMeter(s), 0)
+  })
   const spent = monthSessions.reduce((sum, s) => sum + sessionCost(s), 0)
   const budgetNum = parseAmount(budget)
   const hasBudget = budgetNum != null
@@ -45,6 +46,18 @@ export default function History() {
         <h1>Geschiedenis</h1>
       </header>
 
+      <div className="hist-tabs">
+        <button
+          className={`hist-tab${view === 'insights' ? ' act' : ''}`}
+          onClick={() => setView('insights')}
+        >Inzichten</button>
+        <button
+          className={`hist-tab${view === 'sessions' ? ' act' : ''}`}
+          onClick={() => setView('sessions')}
+        >Sessies</button>
+      </div>
+
+      {view === 'sessions' && (
       <div className="filters">
         <button
           className={`filter-chip${filter === 'all' ? ' filter-chip-active' : ''}`}
@@ -59,23 +72,12 @@ export default function History() {
           Deze week
         </button>
       </div>
+      )}
 
       <div className="content">
-        {monthSessions.length > 0 && (
-          <div className="savings-card">
-            <div className="savings-info">
-              <span className="savings-label">Bespaard deze maand</span>
-              <span className="savings-amount">{formatEuro(saved)}</span>
-              <span className="savings-sub">
-                t.o.v. parkeermeter per uur · {monthSessions.length} sessie{monthSessions.length === 1 ? '' : 's'}
-              </span>
-            </div>
-            <div className="savings-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 17l6-6 4 4 7-7"/><path d="M17 8h4v4"/></svg>
-            </div>
-          </div>
-        )}
-        {hasBudget && (
+        {view === 'insights' && <Insights sessions={sessions} />}
+
+        {view === 'insights' && hasBudget && (
           <div className="budget-card">
             <div className="budget-head">
               <span className="budget-label">Maandbudget</span>
@@ -94,7 +96,7 @@ export default function History() {
             )}
           </div>
         )}
-        {visible.length === 0 ? (
+        {view === 'sessions' && (visible.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">P</div>
             <p>Nog geen parkeersessies</p>
@@ -138,7 +140,7 @@ export default function History() {
               )
             })}
           </div>
-        )}
+        ))}
       </div>
 
       <BottomNav active="history" />

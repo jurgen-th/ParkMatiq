@@ -46,3 +46,8 @@ export function saveSettings(patch) {
   pushSettings(next)
   return next
 }
+
+// Prompt log. Local only: it is a record of what the app asked and what the
+// driver answered, used by the history screen, not account data worth syncing.
+export const getPrompts = local.getPrompts
+export const logPrompt = local.logPrompt
