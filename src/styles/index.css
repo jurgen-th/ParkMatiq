@@ -471,17 +471,10 @@ html[data-theme='dark'] .purpose-toggle .seg-opt-active {
   box-shadow: 0 2px 12px rgba(15, 30, 86, 0.12);
 }
 
-.chip-logo span {
+.chip-logo img {
   width: 26px;
   height: 26px;
-  background: var(--yellow);
-  color: var(--navy);
   border-radius: 8px;
-  font-size: 16px;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .avatar {
